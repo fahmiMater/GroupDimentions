@@ -1,0 +1,5780 @@
+
+/* ---- File: src/App.tsx ---- */
+
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from 'react-query';
+import { ReactQueryDevtools } from 'react-query/devtools';
+import Layout from './components/layout/Layout';
+import Dashboard from './pages/Dashboard/Dashboard';
+import CodeDefinitions from './pages/CodeDefinitions/CodeDefinitions';
+import DimensionalGroups from './pages/DimensionalGroups/DimensionalGroups';
+import Dimensionals from './pages/Dimensionals/Dimensionals';
+import Fields from './pages/Fields/Fields';
+import './styles/globals.css';
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
+
+const App: React.FC = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/code-definitions" element={<CodeDefinitions />} />
+            <Route path="/dimensional-groups" element={<DimensionalGroups />} />
+            <Route path="/dimensionals" element={<Dimensionals />} />
+            <Route path="/fields" element={<Fields />} />
+            <Route path="/data-management" element={<PlaceholderPage title="إدارة البيانات" />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Layout>
+      </Router>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  );
+};
+
+// Placeholder component for unimplemented pages
+const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
+  <div className="text-center py-12">
+    <h2 className="text-2xl font-bold text-gray-900 mb-4">{title}</h2>
+    <p className="text-gray-600">هذه الصفحة قيد التطوير</p>
+  </div>
+);
+
+// 404 Page component
+const NotFound: React.FC = () => (
+  <div className="text-center py-12">
+    <h2 className="text-2xl font-bold text-gray-900 mb-4">الصفحة غير موجودة</h2>
+    <p className="text-gray-600 mb-6">لم يتم العثور على الصفحة المطلوبة</p>
+    <button
+      onClick={() => window.history.back()}
+      className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-hover transition"
+    >
+      العودة للخلف
+    </button>
+  </div>
+);
+
+export default App;
+
+
+/* ---- File: src/components/GroupFieldsUsage.tsx ---- */
+
+import React from 'react';
+import {
+  Card,
+  CardContent,
+  Typography,
+  LinearProgress,
+  Box,
+  Grid,
+  Chip
+} from '@mui/material';
+import { DimensionalGroup, GroupFieldsUsage } from '../types/dimensionalGroups';
+
+interface Props {
+  group: DimensionalGroup;
+  usage: GroupFieldsUsage;
+}
+
+export const GroupFieldsUsageComponent: React.FC<Props> = ({ group, usage }) => {
+  const fieldTypes = [
+    {
+      key: 'text',
+      label: 'الحقول النصية',
+      max: group.text_flows_count || 0,
+      current: usage.text,
+      color: 'primary'
+    },
+    {
+      key: 'number',
+      label: 'الحقول الرقمية',
+      max: group.number_flows_count || 0,
+      current: usage.number,
+      color: 'secondary'
+    },
+    {
+      key: 'date',
+      label: 'حقول التاريخ',
+      max: group.date_flows_count || 0,
+      current: usage.date,
+      color: 'info'
+    },
+    {
+      key: 'boolean',
+      label: 'الحقول المنطقية',
+      max: group.boolean_flows_count || 0,
+      current: usage.boolean,
+      color: 'success'
+    },
+    {
+      key: 'id',
+      label: 'حقول المعرف',
+      max: group.id_flows_count || 0,
+      current: usage.id,
+      color: 'warning'
+    }
+  ];
+
+  const dimensionalFieldTypes = [
+    {
+      key: 'dimensional_text',
+      label: 'الحقول النصية للأبعاد',
+      max: group.dimensional_text_flows_count || 0,
+      current: usage.dimensional_text,
+      color: 'primary'
+    },
+    {
+      key: 'dimensional_number',
+      label: 'الحقول الرقمية للأبعاد',
+      max: group.dimensional_number_flows_count || 0,
+      current: usage.dimensional_number,
+      color: 'secondary'
+    },
+    {
+      key: 'dimensional_date',
+      label: 'حقول التاريخ للأبعاد',
+      max: group.dimensional_date_flows_count || 0,
+      current: usage.dimensional_date,
+      color: 'info'
+    },
+    {
+      key: 'dimensional_boolean',
+      label: 'الحقول المنطقية للأبعاد',
+      max: group.dimensional_boolean_flows_count || 0,
+      current: usage.dimensional_boolean,
+      color: 'success'
+    },
+    {
+      key: 'dimensional_description',
+      label: 'حقول الوصف للأبعاد',
+      max: group.dimensional_description_flows_count || 0,
+      current: usage.dimensional_description,
+      color: 'warning'
+    }
+  ];
+
+  const FieldUsageBar = ({ field }: { field: any }) => {
+    const percentage = field.max > 0 ? (field.current / field.max) * 100 : 0;
+    const isOverLimit = field.current > field.max;
+    
+    return (
+      <Box sx={{ mb: 2 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+          <Typography variant="body2">{field.label}</Typography>
+          <Chip
+            label={`${field.current}/${field.max}`}
+            size="small"
+            color={isOverLimit ? 'error' : percentage > 80 ? 'warning' : 'success'}
+          />
+        </Box>
+        <LinearProgress
+          variant="determinate"
+          value={Math.min(percentage, 100)}
+          color={isOverLimit ? 'error' : percentage > 80 ? 'warning' : field.color as any}
+          sx={{ height: 8, borderRadius: 4 }}
+        />
+      </Box>
+    );
+  };
+
+  return (
+    <Grid container spacing={2}>
+      <Grid item xs={12} md={6}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              استخدام حقول المجموعة
+            </Typography>
+            {fieldTypes.map((field) => (
+              <FieldUsageBar key={field.key} field={field} />
+            ))}
+          </CardContent>
+        </Card>
+      </Grid>
+      
+      <Grid item xs={12} md={6}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              استخدام حقول الأبعاد
+            </Typography>
+            {dimensionalFieldTypes.map((field) => (
+              <FieldUsageBar key={field.key} field={field} />
+            ))}
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+  );
+};
+
+
+
+/* ---- File: src/components/GroupForm.tsx ---- */
+
+import React, { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Grid,
+  FormControlLabel,
+  Checkbox,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Typography,
+  Divider,
+  Box,
+  Alert
+} from '@mui/material';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+import { DimensionalGroup } from '../types/dimensionalGroups';
+import { DimensionalGroupService } from '../services/dimensionalGroups';
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  onSave: (group: DimensionalGroup) => void;
+  group?: DimensionalGroup | null;
+  codeDefinitions: any[];
+  dimensionals: any[];
+  parentGroups: DimensionalGroup[];
+}
+
+const validationSchema = Yup.object({
+  dimensional_group_name: Yup.string()
+    .required('اسم المجموعة مطلوب')
+    .max(50, 'الحد الأقصى 50 حرف'),
+  dimensional_group_description: Yup.string()
+    .max(500, 'الحد الأقصى 500 حرف'),
+  code_definition_id: Yup.number()
+    .required('تعريف الكود مطلوب'),
+  level: Yup.number()
+    .min(0, 'المستوى يجب أن يكون 0 أو أكثر')
+    .max(10, 'الحد الأقصى للمستوى 10'),
+});
+
+export const GroupForm: React.FC<Props> = ({
+  open,
+  onClose,
+  onSave,
+  group,
+  codeDefinitions,
+  dimensionals,
+  parentGroups
+}) => {
+  const [loading, setLoading] = useState(false);
+
+  const formik = useFormik({
+    initialValues: {
+      dimensional_group_name: group?.dimensional_group_name || '',
+      dimensional_group_description: group?.dimensional_group_description || '',
+      code_definition_id: group?.code_definition_id || '',
+      
+      // حقول العد للمجموعة
+      boolean_flows_count: group?.boolean_flows_count || 0,
+      text_flows_count: group?.text_flows_count || 0,
+      number_flows_count: group?.number_flows_count || 0,
+      date_flows_count: group?.date_flows_count || 0,
+      id_flows_count: group?.id_flows_count || 0,
+      
+      // حقول العد للأبعاد
+      dimensional_boolean_flows_count: group?.dimensional_boolean_flows_count || 0,
+      dimensional_text_flows_count: group?.dimensional_text_flows_count || 0,
+      dimensional_number_flows_count: group?.dimensional_number_flows_count || 0,
+      dimensional_date_flows_count: group?.dimensional_date_flows_count || 0,
+      dimensional_description_flows_count: group?.dimensional_description_flows_count || 0,
+      dimensional_id_flows_count: group?.dimensional_id_flows_count || 0,
+      
+      // حقول التحكم
+      system_dimensional_id: group?.system_dimensional_id || '',
+      is_need_permission: group?.is_need_permission || false,
+      is_constant: group?.is_constant || false,
+      is_active: group?.is_active !== false,
+      level: group?.level || 0,
+      dimensional_group_father_id: group?.dimensional_group_father_id || '',
+      dimensional_group_sort: group?.dimensional_group_sort || 1,
+    },
+    validationSchema,
+    onSubmit: async (values) => {
+      setLoading(true);
+      try {
+        if (group?.dimensional_group_id) {
+          const updatedGroup = await DimensionalGroupService.update(
+            group.dimensional_group_id,
+            values
+          );
+          onSave(updatedGroup);
+        } else {
+          const newGroup = await DimensionalGroupService.create(values as any);
+          onSave(newGroup);
+        }
+        onClose();
+      } catch (error) {
+        console.error('Error saving group:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  });
+
+  useEffect(() => {
+    if (group) {
+      formik.setValues({
+        dimensional_group_name: group.dimensional_group_name || '',
+        dimensional_group_description: group.dimensional_group_description || '',
+        code_definition_id: group.code_definition_id || '',
+        boolean_flows_count: group.boolean_flows_count || 0,
+        text_flows_count: group.text_flows_count || 0,
+        number_flows_count: group.number_flows_count || 0,
+        date_flows_count: group.date_flows_count || 0,
+        id_flows_count: group.id_flows_count || 0,
+        dimensional_boolean_flows_count: group.dimensional_boolean_flows_count || 0,
+        dimensional_text_flows_count: group.dimensional_text_flows_count || 0,
+        dimensional_number_flows_count: group.dimensional_number_flows_count || 0,
+        dimensional_date_flows_count: group.dimensional_date_flows_count || 0,
+        dimensional_description_flows_count: group.dimensional_description_flows_count || 0,
+        dimensional_id_flows_count: group.dimensional_id_flows_count || 0,
+        system_dimensional_id: group.system_dimensional_id || '',
+        is_need_permission: group.is_need_permission || false,
+        is_constant: group.is_constant || false,
+        is_active: group.is_active !== false,
+        level: group.level || 0,
+        dimensional_group_father_id: group.dimensional_group_father_id || '',
+        dimensional_group_sort: group.dimensional_group_sort || 1,
+      });
+    }
+  }, [group]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <form onSubmit={formik.handleSubmit}>
+        <DialogTitle>
+          {group ? 'تعديل المجموعة' : 'إضافة مجموعة جديدة'}
+        </DialogTitle>
+        
+        <DialogContent dividers>
+          <Grid container spacing={3}>
+            {/* المعلومات الأساسية */}
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom>
+                المعلومات الأساسية
+              </Typography>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                name="dimensional_group_name"
+                label="اسم المجموعة"
+                value={formik.values.dimensional_group_name}
+                onChange={formik.handleChange}
+                error={formik.touched.dimensional_group_name && Boolean(formik.errors.dimensional_group_name)}
+                helperText={formik.touched.dimensional_group_name && formik.errors.dimensional_group_name}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>تعريف الكود</InputLabel>
+                <Select
+                  name="code_definition_id"
+                  value={formik.values.code_definition_id}
+                  onChange={formik.handleChange}
+                  error={formik.touched.code_definition_id && Boolean(formik.errors.code_definition_id)}
+                >
+                  {codeDefinitions.map((def) => (
+                    <MenuItem key={def.code_definition_id} value={def.code_definition_id}>
+                      {def.code_definition_code}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                name="dimensional_group_description"
+                label="وصف المجموعة"
+                value={formik.values.dimensional_group_description}
+                onChange={formik.handleChange}
+                error={formik.touched.dimensional_group_description && Boolean(formik.errors.dimensional_group_description)}
+                helperText={formik.touched.dimensional_group_description && formik.errors.dimensional_group_description}
+              />
+            </Grid>
+
+            {/* إعدادات التسلسل الهرمي */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="h6" gutterBottom>
+                إعدادات التسلسل الهرمي
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                type="number"
+                name="level"
+                label="المستوى"
+                value={formik.values.level}
+                onChange={formik.handleChange}
+                error={formik.touched.level && Boolean(formik.errors.level)}
+                helperText={formik.touched.level && formik.errors.level}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>المجموعة الأب</InputLabel>
+                <Select
+                  name="dimensional_group_father_id"
+                  value={formik.values.dimensional_group_father_id}
+                  onChange={formik.handleChange}
+                >
+                  <MenuItem value="">لا يوجد</MenuItem>
+                  {parentGroups.map((parent) => (
+                    <MenuItem key={parent.dimensional_group_id} value={parent.dimensional_group_id}>
+                      {parent.dimensional_group_name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                type="number"
+                name="dimensional_group_sort"
+                label="ترتيب العرض"
+                value={formik.values.dimensional_group_sort}
+                onChange={formik.handleChange}
+              />
+            </Grid>
+
+            {/* حدود حقول المجموعة */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="h6" gutterBottom>
+                حدود حقول المجموعة
+              </Typography>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                حدد العدد الأقصى للحقول المسموح إنشاؤها على مستوى المجموعة
+              </Alert>
+            </Grid>
+
+            <Grid item xs={12} md={2.4}>
+              <TextField
+                fullWidth
+                type="number"
+                name="text_flows_count"
+                label="الحقول النصية"
+                value={formik.values.text_flows_count}
+                onChange={formik.handleChange}
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={2.4}>
+              <TextField
+                fullWidth
+                type="number"
+                name="number_flows_count"
+                label="الحقول الرقمية"
+                value={formik.values.number_flows_count}
+                onChange={formik.handleChange}
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={2.4}>
+              <TextField
+                fullWidth
+                type="number"
+                name="date_flows_count"
+                label="حقول التاريخ"
+                value={formik.values.date_flows_count}
+                onChange={formik.handleChange}
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={2.4}>
+              <TextField
+                fullWidth
+                type="number"
+                name="boolean_flows_count"
+                label="الحقول المنطقية"
+                value={formik.values.boolean_flows_count}
+                onChange={formik.handleChange}
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={2.4}>
+              <TextField
+                fullWidth
+                type="number"
+                name="id_flows_count"
+                label="حقول المعرف"
+                value={formik.values.id_flows_count}
+                onChange={formik.handleChange}
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+
+            {/* حدود حقول الأبعاد */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="h6" gutterBottom>
+                حدود حقول الأبعاد
+              </Typography>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                حدد العدد الأقصى للحقول المسموح إنشاؤها على مستوى الأبعاد داخل هذه المجموعة
+              </Alert>
+            </Grid>
+
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                type="number"
+                name="dimensional_text_flows_count"
+                label="نصية للأبعاد"
+                value={formik.values.dimensional_text_flows_count}
+                onChange={formik.handleChange}
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                type="number"
+                name="dimensional_number_flows_count"
+                label="رقمية للأبعاد"
+                value={formik.values.dimensional_number_flows_count}
+                onChange={formik.handleChange}
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                type="number"
+                name="dimensional_date_flows_count"
+                label="تاريخ للأبعاد"
+                value={formik.values.dimensional_date_flows_count}
+                onChange={formik.handleChange}
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                type="number"
+                name="dimensional_boolean_flows_count"
+                label="منطقية للأبعاد"
+                value={formik.values.dimensional_boolean_flows_count}
+                onChange={formik.handleChange}
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                type="number"
+                name="dimensional_description_flows_count"
+                label="وصف للأبعاد"
+                value={formik.values.dimensional_description_flows_count}
+                onChange={formik.handleChange}
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                type="number"
+                name="dimensional_id_flows_count"
+                label="معرف للأبعاد"
+                value={formik.values.dimensional_id_flows_count}
+                onChange={formik.handleChange}
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+
+            {/* إعدادات إضافية */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="h6" gutterBottom>
+                إعدادات إضافية
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>البعد النظامي المرتبط</InputLabel>
+                <Select
+                  name="system_dimensional_id"
+                  value={formik.values.system_dimensional_id}
+                  onChange={formik.handleChange}
+                >
+                  <MenuItem value="">لا يوجد</MenuItem>
+                  {dimensionals.map((dim) => (
+                    <MenuItem key={dim.dimensional_id} value={dim.dimensional_id}>
+                      {dim.dimensional_name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Box display="flex" flexDirection="column" gap={1}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="is_need_permission"
+                      checked={formik.values.is_need_permission}
+                      onChange={formik.handleChange}
+                    />
+                  }
+                  label="تحتاج صلاحيات خاصة"
+                />
+                
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="is_constant"
+                      checked={formik.values.is_constant}
+                      onChange={formik.handleChange}
+                    />
+                  }
+                  label="مجموعة ثابتة (غير قابلة للتعديل)"
+                />
+                
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="is_active"
+                      checked={formik.values.is_active}
+                      onChange={formik.handleChange}
+                    />
+                  }
+                  label="مجموعة نشطة"
+                />
+              </Box>
+            </Grid>
+          </Grid>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={onClose}>إلغاء</Button>
+          <Button 
+            type="submit" 
+            variant="contained" 
+            disabled={loading || !formik.isValid}
+          >
+            {loading ? 'جاري الحفظ...' : 'حفظ'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+};
+
+
+
+/* ---- File: src/components/layout/Header.tsx ---- */
+
+import React from 'react';
+import { Menu, User, Bell } from 'lucide-react';
+import Button from '../ui/Button';
+
+interface HeaderProps {
+  onMenuClick: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
+  return (
+    <header className="bg-white shadow-sm border-b border-gray-200">
+      <div className="px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Left side - Menu button and title */}
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMenuClick}
+              className="lg:hidden p-2"
+            >
+              <Menu className="w-6 h-6" />
+            </Button>
+            
+            <div className="hidden lg:block">
+              <h1 className="text-lg font-semibold text-gray-900">
+                نظام إدارة المجموعات الأبعاد
+              </h1>
+            </div>
+          </div>
+
+          {/* Right side - Actions */}
+          <div className="flex items-center gap-3">
+            {/* Notifications */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-2 relative"
+            >
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+            </Button>
+
+            {/* User menu */}
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:block text-right">
+                <p className="text-sm font-medium text-gray-900">المدير</p>
+                <p className="text-xs text-gray-500">admin@example.com</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="p-2"
+              >
+                <User className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default Header;
+
+
+/* ---- File: src/components/layout/Layout.tsx ---- */
+
+import React, { useState } from 'react';
+import { Toaster } from 'react-hot-toast';
+import Header from './Header';
+import Sidebar from './Sidebar';
+
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  const closeSidebar = () => setSidebarOpen(false);
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="flex h-screen">
+        {/* Sidebar */}
+        <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
+        
+        {/* Main content area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Header */}
+          <Header onMenuClick={toggleSidebar} />
+          
+          {/* Main content */}
+          <main className="flex-1 overflow-auto p-4 lg:p-6">
+            {children}
+          </main>
+        </div>
+      </div>
+      
+      {/* Toast notifications */}
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#fff',
+            color: '#1f2937',
+            fontSize: '14px',
+            fontFamily: 'Cairo, sans-serif',
+            direction: 'rtl',
+            textAlign: 'right'
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff'
+            }
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff'
+            }
+          }
+        }}
+      />
+    </div>
+  );
+};
+
+export default Layout;
+
+
+/* ---- File: src/components/layout/Sidebar.tsx ---- */
+
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { clsx } from 'clsx';
+import {
+  Settings,
+  Users,
+  Database,
+  FileText,
+  Grid3x3,
+  Layers,
+  ChevronRight,
+  Home
+} from 'lucide-react';
+import { MenuItem } from '@/types';
+
+const menuItems: MenuItem[] = [
+  {
+    key: 'dashboard',
+    title: 'الرئيسية',
+    icon: <Home className="w-5 h-5" />,
+    path: '/'
+  },
+  {
+    key: 'code-definitions',
+    title: 'تعريف الأكواد',
+    icon: <Settings className="w-5 h-5" />,
+    path: '/code-definitions'
+  },
+  {
+    key: 'dimensional-groups',
+    title: 'مجموعات الأبعاد',
+    icon: <Grid3x3 className="w-5 h-5" />,
+    path: '/dimensional-groups'
+  },
+  {
+    key: 'dimensionals',
+    title: 'الأبعاد',
+    icon: <Layers className="w-5 h-5" />,
+    path: '/dimensionals'
+  },
+  {
+    key: 'fields',
+    title: 'الحقول',
+    icon: <FileText className="w-5 h-5" />,
+    path: '/fields'
+  },
+  {
+    key: 'data-management',
+    title: 'إدارة البيانات',
+    icon: <Database className="w-5 h-5" />,
+    path: '/data-management'
+  }
+];
+
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+  const location = useLocation();
+
+  return (
+    <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div 
+          className="relative inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div className={clsx(
+        'relative inset-y-0 right-0 z-30 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0',
+        isOpen ? 'translate-x-0' : 'translate-x-full'
+      )}>
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="p-6 border-b border-gray-200">
+            <h1 className="text-xl font-bold text-gray-900">
+              نظام إدارة المجموعات الأبعاد
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              إدارة وتنظيم البيانات الأبعاد
+            </p>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 p-4 space-y-2">
+            {menuItems.map((item) => (
+              <Link
+                key={item.key}
+                to={item.path}
+                className={clsx(
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  location.pathname === item.path
+                    ? 'bg-primary text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                )}
+                onClick={() => {
+                  // Close sidebar on mobile when item is clicked
+                  if (window.innerWidth < 1024) {
+                    onClose();
+                  }
+                }}
+              >
+                {item.icon}
+                <span>{item.title}</span>
+                {location.pathname === item.path && (
+                  <ChevronRight className="w-4 h-4 mr-auto" />
+                )}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-gray-200">
+            <div className="text-xs text-gray-500 text-center">
+              الإصدار 1.0.0
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default Sidebar;
+
+
+/* ---- File: src/components/ui/Button.tsx ---- */
+
+import React from 'react';
+import { clsx } from 'clsx';
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
+  children: React.ReactNode;
+}
+
+const Button: React.FC<ButtonProps> = ({
+  variant = 'primary',
+  size = 'md',
+  loading = false,
+  className,
+  disabled,
+  children,
+  ...props
+}) => {
+  const baseClasses = 'inline-flex items-center justify-center rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+  
+  const variantClasses = {
+    primary: 'bg-primary text-white hover:bg-primary-hover focus:ring-primary',
+    secondary: 'bg-secondary text-white hover:bg-secondary-hover focus:ring-secondary',
+    success: 'bg-success text-white hover:opacity-90 focus:ring-success',
+    warning: 'bg-warning text-white hover:opacity-90 focus:ring-warning',
+    error: 'bg-error text-white hover:opacity-90 focus:ring-error',
+    ghost: 'text-gray-700 hover:bg-gray-100 focus:ring-gray-300',
+  };
+  
+  const sizeClasses = {
+    sm: 'px-3 py-1.5 text-sm',
+    md: 'px-4 py-2 text-base',
+    lg: 'px-6 py-3 text-lg',
+  };
+
+  return (
+    <button
+      className={clsx(
+        baseClasses,
+        variantClasses[variant],
+        sizeClasses[size],
+        className
+      )}
+      disabled={disabled || loading}
+      {...props}
+    >
+      {loading && (
+        <svg 
+          className="w-4 h-4 mr-2 animate-spin" 
+          fill="none" 
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          />
+        </svg>
+      )}
+      {children}
+    </button>
+  );
+};
+
+export default Button;
+
+
+/* ---- File: src/components/ui/Input.tsx ---- */
+
+import React from 'react';
+import { clsx } from 'clsx';
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  helperText?: string;
+}
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(({
+  label,
+  error,
+  helperText,
+  className,
+  id,
+  ...props
+}, ref) => {
+  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+
+  return (
+    <div className="mb-4">
+      {label && (
+        <label 
+          htmlFor={inputId}
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
+          {label}
+        </label>
+      )}
+      <input
+        id={inputId}
+        ref={ref}
+        className={clsx(
+          'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition',
+          error 
+            ? 'border-error focus:ring-error' 
+            : 'border-gray-300 hover:border-gray-400',
+          className
+        )}
+        {...props}
+      />
+      {error && (
+        <p className="mt-1 text-sm text-error">{error}</p>
+      )}
+      {helperText && !error && (
+        <p className="mt-1 text-sm text-gray-500">{helperText}</p>
+      )}
+    </div>
+  );
+});
+
+Input.displayName = 'Input';
+
+export default Input;
+
+
+
+/* ---- File: src/components/ui/Modal.tsx ---- */
+
+import React, { useEffect } from 'react';
+import { X } from 'lucide-react';
+import Button from './Button';
+
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title?: string;
+  children: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  showCloseButton?: boolean;
+}
+
+const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = 'md',
+  showCloseButton = true
+}) => {
+  console.log('Modal isOpen:', isOpen);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) {
+    console.log('Modal not open, returning null');
+    return null;
+  }
+
+  console.log('Rendering modal content');
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div 
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        {(title || showCloseButton) && (
+          <div className="modal-header">
+            {title && (
+              <h3 style={{ 
+                fontSize: '1.125rem', 
+                fontWeight: '600', 
+                color: '#111827',
+                margin: 0 
+              }}>
+                {title}
+              </h3>
+            )}
+            {showCloseButton && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                style={{ padding: '0.5rem' }}
+              >
+                <X style={{ width: '1rem', height: '1rem' }} />
+              </Button>
+            )}
+          </div>
+        )}
+        
+        {/* Content */}
+        <div className="modal-body">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Modal;
+
+
+
+/* ---- File: src/components/ui/Select.tsx ---- */
+
+import React from 'react';
+import { clsx } from 'clsx';
+
+interface SelectOption {
+  value: any;
+  label: string;
+  disabled?: boolean;
+}
+
+interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  label?: string;
+  error?: string;
+  helperText?: string;
+  options: SelectOption[];
+  placeholder?: string;
+}
+
+const Select = React.forwardRef<HTMLSelectElement, SelectProps>(({
+  label,
+  error,
+  helperText,
+  options,
+  placeholder = 'اختر...',
+  className,
+  id,
+  ...props
+}, ref) => {
+  const selectId = id || `select-${Math.random().toString(36).substr(2, 9)}`;
+
+  return (
+    <div className="mb-4">
+      {label && (
+        <label 
+          htmlFor={selectId}
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
+          {label}
+        </label>
+      )}
+      <select
+        id={selectId}
+        ref={ref}
+        className={clsx(
+          'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition bg-white',
+          error 
+            ? 'border-error focus:ring-error' 
+            : 'border-gray-300 hover:border-gray-400',
+          className
+        )}
+        {...props}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((option, index) => (
+          <option 
+            key={index} 
+            value={option.value}
+            disabled={option.disabled}
+          >
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {error && (
+        <p className="mt-1 text-sm text-error">{error}</p>
+      )}
+      {helperText && !error && (
+        <p className="mt-1 text-sm text-gray-500">{helperText}</p>
+      )}
+    </div>
+  );
+});
+
+Select.displayName = 'Select';
+
+export default Select;
+
+
+
+/* ---- File: src/components/ui/Table.tsx ---- */
+
+import React from 'react';
+import { clsx } from 'clsx';
+import { TableColumn } from '@/types';
+
+interface TableProps<T = any> {
+  columns: TableColumn[];
+  data: T[];
+  loading?: boolean;
+  emptyText?: string;
+  className?: string;
+  onRowClick?: (record: T) => void;
+}
+
+const Table = <T extends Record<string, any>>({
+  columns,
+  data,
+  loading = false,
+  emptyText = 'لا توجد بيانات',
+  className,
+  onRowClick
+}: TableProps<T>) => {
+  if (loading) {
+    return (
+      <div className="w-full">
+        <div className="animate-pulse">
+          <div className="bg-gray-200 h-12 rounded mb-2"></div>
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="bg-gray-100 h-10 rounded mb-1"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500 text-lg">{emptyText}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={clsx('overflow-x-auto', className)}>
+      <table className="w-full bg-white rounded-lg shadow-sm border border-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {columns.map((column, index) => (
+              <th
+                key={column.key}
+                className={clsx(
+                  'px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider',
+                  index === 0 && 'rounded-tr-lg',
+                  index === columns.length - 1 && 'rounded-tl-lg'
+                )}
+                style={{ width: column.width }}
+              >
+                {column.title}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-200">
+          {data.map((record, rowIndex) => (
+            <tr
+              key={rowIndex}
+              className={clsx(
+                'hover:bg-gray-50 transition-colors',
+                onRowClick && 'cursor-pointer'
+              )}
+              onClick={() => onRowClick?.(record)}
+            >
+              {columns.map((column) => (
+                <td
+                  key={column.key}
+                  className="px-4 py-3 text-sm text-gray-900"
+                >
+                  {column.render
+                    ? column.render(record[column.key], record)
+                    : record[column.key] || '-'
+                  }
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export default Table;
+
+
+/* ---- File: src/hooks/useCodeDefinitions.ts ---- */
+
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { codeDefinitionService, ApiService } from '@/services/api';
+import { CodeDefinition, CodeDefinitionWithGroups } from '@/types';
+import toast from 'react-hot-toast';
+
+// Query keys
+export const CODE_DEFINITION_KEYS = {
+  all: ['code-definitions'] as const,
+  withGroups: ['code-definitions', 'with-groups'] as const,
+  detail: (id: number) => ['code-definitions', id] as const,
+};
+
+// Get all code definitions
+export const useCodeDefinitions = () => {
+  return useQuery(
+    CODE_DEFINITION_KEYS.all,
+    () => codeDefinitionService.getAll({
+      orderBy: 'code_definition_code',
+      ascending: true
+    }),
+    {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      cacheTime: 10 * 60 * 1000, // 10 minutes
+    }
+  );
+};
+
+// Get code definitions with groups
+export const useCodeDefinitionsWithGroups = () => {
+  return useQuery(
+    CODE_DEFINITION_KEYS.withGroups,
+    () => ApiService.getCodeDefinitionsWithGroups(),
+    {
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Get code definition by ID
+export const useCodeDefinition = (id: number | undefined) => {
+  return useQuery(
+    CODE_DEFINITION_KEYS.detail(id!),
+    () => codeDefinitionService.getById(id!),
+    {
+      enabled: !!id,
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Create code definition mutation
+export const useCreateCodeDefinition = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    (data: Omit<CodeDefinition, 'code_definition_id'>) => 
+      codeDefinitionService.create({
+        ...data,
+        created_by: 1 // This should come from auth context
+      }),
+    {
+      onSuccess: (data) => {
+        queryClient.invalidateQueries(CODE_DEFINITION_KEYS.all);
+        queryClient.invalidateQueries(CODE_DEFINITION_KEYS.withGroups);
+        toast.success('تم إضافة تعريف الكود بنجاح');
+        return data;
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في إضافة تعريف الكود: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+// Update code definition mutation
+export const useUpdateCodeDefinition = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    ({ id, data }: { id: number; data: Partial<CodeDefinition> }) =>
+      codeDefinitionService.update(id, data),
+    {
+      onSuccess: (data, variables) => {
+        queryClient.invalidateQueries(CODE_DEFINITION_KEYS.all);
+        queryClient.invalidateQueries(CODE_DEFINITION_KEYS.withGroups);
+        queryClient.invalidateQueries(CODE_DEFINITION_KEYS.detail(variables.id));
+        toast.success('تم تحديث تعريف الكود بنجاح');
+        return data;
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في تحديث تعريف الكود: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+// Delete code definition mutation
+export const useDeleteCodeDefinition = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    (id: number) => codeDefinitionService.delete(id),
+    {
+      onSuccess: (_, id) => {
+        queryClient.invalidateQueries(CODE_DEFINITION_KEYS.all);
+        queryClient.invalidateQueries(CODE_DEFINITION_KEYS.withGroups);
+        queryClient.removeQueries(CODE_DEFINITION_KEYS.detail(id));
+        toast.success('تم حذف تعريف الكود بنجاح');
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في حذف تعريف الكود: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+
+/* ---- File: src/hooks/useDimensionalGroups.ts ---- */
+
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { dimensionalGroupService, ApiService } from '@/services/api';
+import { DimensionalGroup, DimensionalGroupWithDetails } from '@/types';
+import toast from 'react-hot-toast';
+
+// Query keys
+export const DIMENSIONAL_GROUP_KEYS = {
+  all: ['dimensional-groups'] as const,
+  withDetails: ['dimensional-groups', 'with-details'] as const,
+  byCodeDefinition: (codeDefinitionId: number) => ['dimensional-groups', 'code-definition', codeDefinitionId] as const,
+  detail: (id: number) => ['dimensional-groups', id] as const,
+  detailWithDetails: (id: number) => ['dimensional-groups', id, 'with-details'] as const,
+};
+
+// Get all dimensional groups
+export const useDimensionalGroups = (filters?: {
+  code_definition_id?: number;
+  is_active?: boolean;
+}) => {
+  return useQuery(
+    filters?.code_definition_id 
+      ? DIMENSIONAL_GROUP_KEYS.byCodeDefinition(filters.code_definition_id)
+      : DIMENSIONAL_GROUP_KEYS.all,
+    () => dimensionalGroupService.getAll({
+      orderBy: 'dimensional_group_sort',
+      ascending: true,
+      filters
+    }),
+    {
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Get dimensional groups with details
+export const useDimensionalGroupsWithDetails = (filters?: {
+  code_definition_id?: number;
+  is_active?: boolean;
+}) => {
+  return useQuery(
+    DIMENSIONAL_GROUP_KEYS.withDetails,
+    () => ApiService.getDimensionalGroupsWithDetails(filters),
+    {
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Get dimensional group by ID
+export const useDimensionalGroup = (id: number | undefined) => {
+  return useQuery(
+    DIMENSIONAL_GROUP_KEYS.detail(id!),
+    () => dimensionalGroupService.getById(id!),
+    {
+      enabled: !!id,
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Get dimensional group by ID with details
+export const useDimensionalGroupWithDetails = (id: number | undefined) => {
+  return useQuery(
+    DIMENSIONAL_GROUP_KEYS.detailWithDetails(id!),
+    () => ApiService.getDimensionalGroupById(id!),
+    {
+      enabled: !!id,
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Create dimensional group mutation
+export const useCreateDimensionalGroup = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    (data: Omit<DimensionalGroup, 'dimensional_group_id'>) => 
+      dimensionalGroupService.create({
+        ...data,
+        created_by: 1 // This should come from auth context
+      }),
+    {
+      onSuccess: (data) => {
+        queryClient.invalidateQueries(DIMENSIONAL_GROUP_KEYS.all);
+        queryClient.invalidateQueries(DIMENSIONAL_GROUP_KEYS.withDetails);
+        if (data.code_definition_id) {
+          queryClient.invalidateQueries(DIMENSIONAL_GROUP_KEYS.byCodeDefinition(data.code_definition_id));
+        }
+        toast.success('تم إضافة مجموعة الأبعاد بنجاح');
+        return data;
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في إضافة مجموعة الأبعاد: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+// Update dimensional group mutation
+export const useUpdateDimensionalGroup = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    ({ id, data }: { id: number; data: Partial<DimensionalGroup> }) =>
+      dimensionalGroupService.update(id, data),
+    {
+      onSuccess: (data, variables) => {
+        queryClient.invalidateQueries(DIMENSIONAL_GROUP_KEYS.all);
+        queryClient.invalidateQueries(DIMENSIONAL_GROUP_KEYS.withDetails);
+        queryClient.invalidateQueries(DIMENSIONAL_GROUP_KEYS.detail(variables.id));
+        queryClient.invalidateQueries(DIMENSIONAL_GROUP_KEYS.detailWithDetails(variables.id));
+        if (data.code_definition_id) {
+          queryClient.invalidateQueries(DIMENSIONAL_GROUP_KEYS.byCodeDefinition(data.code_definition_id));
+        }
+        toast.success('تم تحديث مجموعة الأبعاد بنجاح');
+        return data;
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في تحديث مجموعة الأبعاد: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+// Delete dimensional group mutation
+export const useDeleteDimensionalGroup = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    (id: number) => dimensionalGroupService.delete(id),
+    {
+      onSuccess: (_, id) => {
+        queryClient.invalidateQueries(DIMENSIONAL_GROUP_KEYS.all);
+        queryClient.invalidateQueries(DIMENSIONAL_GROUP_KEYS.withDetails);
+        queryClient.removeQueries(DIMENSIONAL_GROUP_KEYS.detail(id));
+        queryClient.removeQueries(DIMENSIONAL_GROUP_KEYS.detailWithDetails(id));
+        toast.success('تم حذف مجموعة الأبعاد بنجاح');
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في حذف مجموعة الأبعاد: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+
+/* ---- File: src/hooks/useDimensionals.ts ---- */
+
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { dimensionalService, ApiService } from '@/services/api';
+import { Dimensional, DimensionalWithDetails } from '@/types';
+import toast from 'react-hot-toast';
+
+// Query keys
+export const DIMENSIONAL_KEYS = {
+  all: ['dimensionals'] as const,
+  withDetails: ['dimensionals', 'with-details'] as const,
+  byGroup: (groupId: number) => ['dimensionals', 'group', groupId] as const,
+  byGroupWithDetails: (groupId: number) => ['dimensionals', 'group', groupId, 'with-details'] as const,
+  detail: (id: number) => ['dimensionals', id] as const,
+  detailWithDetails: (id: number) => ['dimensionals', id, 'with-details'] as const,
+};
+
+// Get all dimensionals
+export const useDimensionals = (filters?: {
+  dimensional_group_id?: number;
+  is_active?: boolean;
+}) => {
+  return useQuery(
+    filters?.dimensional_group_id 
+      ? DIMENSIONAL_KEYS.byGroup(filters.dimensional_group_id)
+      : DIMENSIONAL_KEYS.all,
+    () => dimensionalService.getAll({
+      orderBy: 'dimensional_sort',
+      ascending: true,
+      filters
+    }),
+    {
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Get dimensionals with details
+export const useDimensionalsWithDetails = (groupId?: number) => {
+  return useQuery(
+    groupId 
+      ? DIMENSIONAL_KEYS.byGroupWithDetails(groupId)
+      : DIMENSIONAL_KEYS.withDetails,
+    () => ApiService.getDimensionalsWithDetails(groupId),
+    {
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Get dimensional by ID
+export const useDimensional = (id: number | undefined) => {
+  return useQuery(
+    DIMENSIONAL_KEYS.detail(id!),
+    () => dimensionalService.getById(id!),
+    {
+      enabled: !!id,
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Get dimensional follow data
+export const useDimensionalFollowData = (dimensionalId: number | undefined) => {
+  return useQuery(
+    ['dimensional-follow-data', dimensionalId],
+    () => ApiService.getDimensionalFollowData(dimensionalId!),
+    {
+      enabled: !!dimensionalId,
+      staleTime: 2 * 60 * 1000,
+      cacheTime: 5 * 60 * 1000,
+    }
+  );
+};
+
+// Create dimensional mutation
+export const useCreateDimensional = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    (data: Omit<Dimensional, 'dimensional_id'>) => 
+      dimensionalService.create({
+        ...data,
+        created_by: 1 // This should come from auth context
+      }),
+    {
+      onSuccess: (data) => {
+        queryClient.invalidateQueries(DIMENSIONAL_KEYS.all);
+        queryClient.invalidateQueries(DIMENSIONAL_KEYS.withDetails);
+        if (data.dimensional_group_id) {
+          queryClient.invalidateQueries(DIMENSIONAL_KEYS.byGroup(data.dimensional_group_id));
+          queryClient.invalidateQueries(DIMENSIONAL_KEYS.byGroupWithDetails(data.dimensional_group_id));
+        }
+        toast.success('تم إضافة البعد بنجاح');
+        return data;
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في إضافة البعد: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+// Update dimensional mutation
+export const useUpdateDimensional = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    ({ id, data }: { id: number; data: Partial<Dimensional> }) =>
+      dimensionalService.update(id, data),
+    {
+      onSuccess: (data, variables) => {
+        queryClient.invalidateQueries(DIMENSIONAL_KEYS.all);
+        queryClient.invalidateQueries(DIMENSIONAL_KEYS.withDetails);
+        queryClient.invalidateQueries(DIMENSIONAL_KEYS.detail(variables.id));
+        queryClient.invalidateQueries(DIMENSIONAL_KEYS.detailWithDetails(variables.id));
+        if (data.dimensional_group_id) {
+          queryClient.invalidateQueries(DIMENSIONAL_KEYS.byGroup(data.dimensional_group_id));
+          queryClient.invalidateQueries(DIMENSIONAL_KEYS.byGroupWithDetails(data.dimensional_group_id));
+        }
+        toast.success('تم تحديث البعد بنجاح');
+        return data;
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في تحديث البعد: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+// Delete dimensional mutation
+export const useDeleteDimensional = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    (id: number) => dimensionalService.delete(id),
+    {
+      onSuccess: (_, id) => {
+        queryClient.invalidateQueries(DIMENSIONAL_KEYS.all);
+        queryClient.invalidateQueries(DIMENSIONAL_KEYS.withDetails);
+        queryClient.removeQueries(DIMENSIONAL_KEYS.detail(id));
+        queryClient.removeQueries(DIMENSIONAL_KEYS.detailWithDetails(id));
+        toast.success('تم حذف البعد بنجاح');
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في حذف البعد: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+
+/* ---- File: src/hooks/useFields.ts ---- */
+
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { fieldService, ApiService } from '@/services/api';
+import { Field, FieldWithDetails } from '@/types';
+import toast from 'react-hot-toast';
+
+// Query keys
+export const FIELD_KEYS = {
+  all: ['fields'] as const,
+  withDetails: ['fields', 'with-details'] as const,
+  detail: (id: number) => ['fields', id] as const,
+  byType: (typeId: number) => ['fields', 'type', typeId] as const,
+};
+
+// Get all fields
+export const useFields = (filters?: {
+  field_type_dimensional_id?: number;
+}) => {
+  return useQuery(
+    filters?.field_type_dimensional_id 
+      ? FIELD_KEYS.byType(filters.field_type_dimensional_id)
+      : FIELD_KEYS.all,
+    () => fieldService.getAll({
+      orderBy: 'field_name',
+      ascending: true,
+      filters
+    }),
+    {
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Get fields with details
+export const useFieldsWithDetails = () => {
+  return useQuery(
+    FIELD_KEYS.withDetails,
+    () => ApiService.getFieldsWithDetails(),
+    {
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Get field by ID
+export const useField = (id: number | undefined) => {
+  return useQuery(
+    FIELD_KEYS.detail(id!),
+    () => fieldService.getById(id!),
+    {
+      enabled: !!id,
+      staleTime: 5 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+};
+
+// Create field mutation
+export const useCreateField = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    (data: Omit<Field, 'field_id'>) => 
+      fieldService.create({
+        ...data,
+        created_by: 1 // This should come from auth context
+      }),
+    {
+      onSuccess: (data) => {
+        queryClient.invalidateQueries(FIELD_KEYS.all);
+        queryClient.invalidateQueries(FIELD_KEYS.withDetails);
+        if (data.field_type_dimensional_id) {
+          queryClient.invalidateQueries(FIELD_KEYS.byType(data.field_type_dimensional_id));
+        }
+        toast.success('تم إضافة الحقل بنجاح');
+        return data;
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في إضافة الحقل: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+// Update field mutation
+export const useUpdateField = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    ({ id, data }: { id: number; data: Partial<Field> }) =>
+      fieldService.update(id, data),
+    {
+      onSuccess: (data, variables) => {
+        queryClient.invalidateQueries(FIELD_KEYS.all);
+        queryClient.invalidateQueries(FIELD_KEYS.withDetails);
+        queryClient.invalidateQueries(FIELD_KEYS.detail(variables.id));
+        if (data.field_type_dimensional_id) {
+          queryClient.invalidateQueries(FIELD_KEYS.byType(data.field_type_dimensional_id));
+        }
+        toast.success('تم تحديث الحقل بنجاح');
+        return data;
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في تحديث الحقل: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+// Delete field mutation
+export const useDeleteField = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    (id: number) => fieldService.delete(id),
+    {
+      onSuccess: (_, id) => {
+        queryClient.invalidateQueries(FIELD_KEYS.all);
+        queryClient.invalidateQueries(FIELD_KEYS.withDetails);
+        queryClient.removeQueries(FIELD_KEYS.detail(id));
+        toast.success('تم حذف الحقل بنجاح');
+      },
+      onError: (error: any) => {
+        toast.error(`خطأ في حذف الحقل: ${error.message}`);
+        throw error;
+      },
+    }
+  );
+};
+
+
+/* ---- File: src/main.tsx ---- */
+
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+
+
+/* ---- File: src/pages/CodeDefinitions/CodeDefinitionForm.tsx ---- */
+
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import { CodeDefinition, FormMode } from '@/types';
+import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
+import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
+
+interface CodeDefinitionFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: Partial<CodeDefinition>) => void;
+  initialData?: CodeDefinition | null;
+  mode: FormMode;
+  loading?: boolean;
+}
+
+const validationSchema = yup.object({
+  code_definition_code: yup
+    .string()
+    .required('كود التعريف مطلوب')
+    .max(15, 'كود التعريف يجب ألا يزيد عن 15 حرف'),
+  system_config_level: yup
+    .number()
+    .nullable()
+    .min(1, 'مستوى التكوين يجب أن يكون أكبر من 0'),
+  is_available: yup.boolean().nullable()
+});
+
+type FormData = yup.InferType<typeof validationSchema>;
+
+const CodeDefinitionForm: React.FC<CodeDefinitionFormProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  initialData,
+  mode,
+  loading = false
+}) => {
+  console.log('CodeDefinitionForm isOpen:', isOpen);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset
+  } = useForm<FormData>({
+    resolver: yupResolver(validationSchema),
+    defaultValues: {
+      code_definition_code: initialData?.code_definition_code || '',
+      system_config_level: initialData?.system_config_level || null,
+      is_available: initialData?.is_available ?? true
+    }
+  });
+
+  React.useEffect(() => {
+    if (isOpen && initialData) {
+      reset({
+        code_definition_code: initialData.code_definition_code || '',
+        system_config_level: initialData.system_config_level || null,
+        is_available: initialData.is_available ?? true
+      });
+    } else if (isOpen && mode === FormMode.CREATE) {
+      reset({
+        code_definition_code: '',
+        system_config_level: null,
+        is_available: true
+      });
+    }
+  }, [isOpen, initialData, mode, reset]);
+
+  const handleFormSubmit = (data: FormData) => {
+    console.log('Form submitted:', data);
+    onSubmit(data);
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const isReadOnly = mode === FormMode.VIEW;
+
+  const getTitle = () => {
+    switch (mode) {
+      case FormMode.CREATE:
+        return 'إضافة تعريف كود جديد';
+      case FormMode.EDIT:
+        return 'تعديل تعريف الكود';
+      case FormMode.VIEW:
+        return 'عرض تعريف الكود';
+      default:
+        return 'تعريف الكود';
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={handleClose} title={getTitle()} size="md">
+      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+        <Input
+          label="كود التعريف *"
+          placeholder="أدخل كود التعريف"
+          {...register('code_definition_code')}
+          error={errors.code_definition_code?.message}
+          disabled={isReadOnly}
+        />
+
+        <Input
+          label="مستوى تكوين النظام"
+          type="number"
+          placeholder="أدخل مستوى التكوين"
+          {...register('system_config_level')}
+          error={errors.system_config_level?.message}
+          disabled={isReadOnly}
+        />
+
+        <Select
+          label="حالة الإتاحة"
+          {...register('is_available')}
+          options={[
+            { value: true, label: 'متاح' },
+            { value: false, label: 'غير متاح' }
+          ]}
+          disabled={isReadOnly}
+        />
+
+        <div className="flex gap-3 pt-4">
+          {!isReadOnly && (
+            <Button
+              type="submit"
+              variant="primary"
+              loading={loading}
+              disabled={loading}
+            >
+              {mode === FormMode.CREATE ? 'إضافة' : 'حفظ التغييرات'}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleClose}
+            disabled={loading}
+          >
+            {isReadOnly ? 'إغلاق' : 'إلغاء'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default CodeDefinitionForm;
+
+
+
+/* ---- File: src/pages/CodeDefinitions/CodeDefinitions.tsx ---- */
+
+import React, { useState } from 'react';
+import { Plus, Edit, Eye, Trash2 } from 'lucide-react';
+import { CodeDefinition, FormMode, TableColumn } from '@/types';
+import {
+  useCodeDefinitions,
+  useCreateCodeDefinition,
+  useUpdateCodeDefinition,
+  useDeleteCodeDefinition
+} from '@/hooks/useCodeDefinitions';
+import Button from '@/components/ui/Button';
+import Table from '@/components/ui/Table';
+import CodeDefinitionForm from './CodeDefinitionForm';
+
+const CodeDefinitions: React.FC = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<CodeDefinition | null>(null);
+  const [formMode, setFormMode] = useState<FormMode>(FormMode.CREATE);
+
+  // Hooks
+  const { data: codeDefinitions, isLoading, error } = useCodeDefinitions();
+  const createMutation = useCreateCodeDefinition();
+  const updateMutation = useUpdateCodeDefinition();
+  const deleteMutation = useDeleteCodeDefinition();
+
+  // Debug info
+  console.log('CodeDefinitions data:', codeDefinitions);
+  console.log('Loading:', isLoading);
+  console.log('Error:', error);
+
+  // Handlers
+  const handleCreate = () => {
+    console.log('Button clicked!'); // للتشخيص
+    setSelectedItem(null);
+    setFormMode(FormMode.CREATE);
+    setIsModalOpen(true);
+    console.log('Modal should be open:', true); // للتشخيص
+  };
+
+  const handleEdit = (item: CodeDefinition) => {
+    setSelectedItem(item);
+    setFormMode(FormMode.EDIT);
+    setIsModalOpen(true);
+  };
+
+  const handleView = (item: CodeDefinition) => {
+    setSelectedItem(item);
+    setFormMode(FormMode.VIEW);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (item: CodeDefinition) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا التعريف؟')) {
+      deleteMutation.mutate(item.code_definition_id);
+    }
+  };
+
+  const handleFormSubmit = async (data: Partial<CodeDefinition>) => {
+    try {
+      if (formMode === FormMode.CREATE) {
+        await createMutation.mutateAsync(data as Omit<CodeDefinition, 'code_definition_id'>);
+      } else if (formMode === FormMode.EDIT && selectedItem) {
+        await updateMutation.mutateAsync({
+          id: selectedItem.code_definition_id,
+          data
+        });
+      }
+      setIsModalOpen(false);
+      setSelectedItem(null);
+    } catch (error) {
+      // Error handling is done in the hooks
+    }
+  };
+
+  // Table configuration
+  const columns: TableColumn[] = [
+    {
+      key: 'code_definition_id',
+      title: 'المعرف',
+      width: 80
+    },
+    {
+      key: 'code_definition_code',
+      title: 'كود التعريف',
+      width: 150
+    },
+    {
+      key: 'system_config_level',
+      title: 'مستوى التكوين',
+      width: 120,
+      render: (value) => value ?? '-'
+    },
+    {
+      key: 'is_available',
+      title: 'حالة الإتاحة',
+      width: 100,
+      render: (value) => (
+        <span className={`px-2 py-1 rounded-full text-xs ${
+          value 
+            ? 'bg-success text-white' 
+            : 'bg-gray-300 text-gray-700'
+        }`}>
+          {value ? 'متاح' : 'غير متاح'}
+        </span>
+      )
+    },
+    {
+      key: 'created_at',
+      title: 'تاريخ الإضافة',
+      width: 120,
+      render: (value) => value ? new Date(value).toLocaleDateString('ar-SA') : '-'
+    },
+    {
+      key: 'actions',
+      title: 'الإجراءات',
+      width: 120,
+      render: (_, record: CodeDefinition) => (
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleView(record)}
+            className="p-1"
+          >
+            <Eye className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleEdit(record)}
+            className="p-1"
+          >
+            <Edit className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleDelete(record)}
+            className="p-1 text-error hover:bg-red-50"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">تعريف الأكواد</h1>
+          <p className="text-gray-600 mt-1">إدارة تعريفات الأكواد ومستويات التكوين</p>
+        </div>
+        <Button
+          variant="primary"
+          onClick={handleCreate}
+          className="flex items-center gap-2"
+          style={{ backgroundColor: '#2563eb', color: 'white', padding: '8px 16px' }}
+        >
+          <Plus className="w-4 h-4" />
+          إضافة تعريف جديد
+        </Button>
+      </div>
+
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">إجمالي التعريفات</h3>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {codeDefinitions?.length || 0}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">التعريفات المتاحة</h3>
+          <p className="text-2xl font-bold text-success mt-1">
+            {codeDefinitions?.filter(cd => cd.is_available).length || 0}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">التعريفات غير المتاحة</h3>
+          <p className="text-2xl font-bold text-error mt-1">
+            {codeDefinitions?.filter(cd => !cd.is_available).length || 0}
+          </p>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <Table
+          columns={columns}
+          data={codeDefinitions || []}
+          loading={isLoading}
+          emptyText="لا توجد تعريفات أكواد"
+        />
+      </div>
+
+      {/* Form Modal */}
+      <CodeDefinitionForm
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleFormSubmit}
+        initialData={selectedItem}
+        mode={formMode}
+        loading={createMutation.isLoading || updateMutation.isLoading}
+      />
+    </div>
+  );
+};
+
+export default CodeDefinitions;
+
+
+
+/* ---- File: src/pages/Dashboard/Dashboard.tsx ---- */
+
+import React from 'react';
+import {
+  Settings,
+  Grid3x3,
+  Layers,
+  FileText,
+  TrendingUp,
+  Users,
+  Database,
+  Activity
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useCodeDefinitions } from '@/hooks/useCodeDefinitions';
+import { useDimensionalGroups } from '@/hooks/useDimensionalGroups';
+import { useDimensionals } from '@/hooks/useDimensionals';
+import { useFields } from '@/hooks/useFields';
+import Button from '@/components/ui/Button';
+
+const Dashboard: React.FC = () => {
+  // Get statistics
+  const { data: codeDefinitions } = useCodeDefinitions();
+  const { data: dimensionalGroups } = useDimensionalGroups();
+  const { data: dimensionals } = useDimensionals();
+  const { data: fields } = useFields();
+
+  const stats = [
+    {
+      title: 'تعريف الأكواد',
+      value: codeDefinitions?.length || 0,
+      change: '+12%',
+      icon: <Settings className="w-8 h-8" />,
+      color: 'bg-blue-500',
+      link: '/code-definitions'
+    },
+    {
+      title: 'مجموعات الأبعاد',
+      value: dimensionalGroups?.length || 0,
+      change: '+8%',
+      icon: <Grid3x3 className="w-8 h-8" />,
+      color: 'bg-green-500',
+      link: '/dimensional-groups'
+    },
+    {
+      title: 'الأبعاد',
+      value: dimensionals?.length || 0,
+      change: '+15%',
+      icon: <Layers className="w-8 h-8" />,
+      color: 'bg-purple-500',
+      link: '/dimensionals'
+    },
+    {
+      title: 'الحقول',
+      value: fields?.length || 0,
+      change: '+5%',
+      icon: <FileText className="w-8 h-8" />,
+      color: 'bg-orange-500',
+      link: '/fields'
+    }
+  ];
+
+  const quickActions = [
+    {
+      title: 'إضافة تعريف كود جديد',
+      description: 'إنشاء تعريف كود جديد للنظام',
+      icon: <Settings className="w-6 h-6" />,
+      link: '/code-definitions',
+      color: 'bg-blue-50 text-blue-600'
+    },
+    {
+      title: 'إضافة مجموعة أبعاد',
+      description: 'إنشاء مجموعة أبعاد جديدة',
+      icon: <Grid3x3 className="w-6 h-6" />,
+      link: '/dimensional-groups',
+      color: 'bg-green-50 text-green-600'
+    },
+    {
+      title: 'إدارة الأبعاد',
+      description: 'إضافة وتعديل الأبعاد',
+      icon: <Layers className="w-6 h-6" />,
+      link: '/dimensionals',
+      color: 'bg-purple-50 text-purple-600'
+    },
+    {
+      title: 'إدارة الحقول',
+      description: 'تكوين وإدارة الحقول',
+      icon: <FileText className="w-6 h-6" />,
+      link: '/fields',
+      color: 'bg-orange-50 text-orange-600'
+    }
+  ];
+
+  const recentActivity = [
+    {
+      id: 1,
+      action: 'تم إضافة تعريف كود جديد',
+      details: 'كود التعريف: SYS001',
+      time: 'منذ ساعتين',
+      type: 'create'
+    },
+    {
+      id: 2,
+      action: 'تم تعديل مجموعة أبعاد',
+      details: 'مجموعة الإعدادات الأساسية',
+      time: 'منذ 4 ساعات',
+      type: 'update'
+    },
+    {
+      id: 3,
+      action: 'تم إضافة بعد جديد',
+      details: 'بعد التصنيف الفرعي',
+      time: 'منذ يوم واحد',
+      type: 'create'
+    },
+    {
+      id: 4,
+      action: 'تم حذف حقل',
+      details: 'حقل الوصف المؤقت',
+      time: 'منذ يومين',
+      type: 'delete'
+    }
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Welcome Section */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-8 .text-primary ">
+        <h1 className="text-3xl font-bold mb-2">أهلاً بك في نظام إدارة المجموعات الأبعاد</h1>
+        <p className="text-blue-100 text-lg">
+          إدارة شاملة ومتقدمة لجميع عناصر النظام والبيانات الأبعاد
+        </p>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => (
+          <Link
+            key={index}
+            to={stat.link}
+            className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                <p className="text-sm text-green-600 mt-1">{stat.change}</p>
+              </div>
+              <div className={`p-3 rounded-lg ${stat.color} text-white`}>
+                {stat.icon}
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Quick Actions */}
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">إجراءات سريعة</h3>
+            <p className="text-sm text-gray-600 mt-1">الأعمال الشائعة والمهمة</p>
+          </div>
+          <div className="p-6 space-y-4">
+            {quickActions.map((action, index) => (
+              <Link
+                key={index}
+                to={action.link}
+                className="flex items-start gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className={`p-2 rounded-lg ${action.color}`}>
+                  {action.icon}
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-gray-900">{action.title}</h4>
+                  <p className="text-sm text-gray-600 mt-1">{action.description}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">النشاط الأخير</h3>
+            <p className="text-sm text-gray-600 mt-1">آخر العمليات والتحديثات</p>
+          </div>
+          <div className="p-6">
+            <div className="space-y-4">
+              {recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-start gap-3">
+                  <div className={`w-2 h-2 rounded-full mt-2 ${
+                    activity.type === 'create' ? 'bg-green-500' :
+                    activity.type === 'update' ? 'bg-blue-500' :
+                    'bg-red-500'
+                  }`} />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{activity.action}</p>
+                    <p className="text-sm text-gray-600">{activity.details}</p>
+                    <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6">
+              <Button variant="ghost" size="sm" className="w-full">
+                عرض جميع الأنشطة
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* System Overview */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">نظرة عامة على النظام</h3>
+          <p className="text-sm text-gray-600 mt-1">معلومات شاملة عن حالة النظام</p>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center">
+              <div className="bg-green-100 p-4 rounded-lg inline-block mb-4">
+                <Activity className="w-8 h-8 text-green-600" />
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-2">حالة النظام</h4>
+              <p className="text-sm text-gray-600">النظام يعمل بشكل طبيعي</p>
+              <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full mt-2">
+                متصل
+              </span>
+            </div>
+            
+            <div className="text-center">
+              <div className="bg-blue-100 p-4 rounded-lg inline-block mb-4">
+                <Database className="w-8 h-8 text-blue-600" />
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-2">قاعدة البيانات</h4>
+              <p className="text-sm text-gray-600">متصلة ومحدثة</p>
+              <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mt-2">
+                مُحدثة
+              </span>
+            </div>
+            
+            <div className="text-center">
+              <div className="bg-purple-100 p-4 rounded-lg inline-block mb-4">
+                <Users className="w-8 h-8 text-purple-600" />
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-2">المستخدمون</h4>
+              <p className="text-sm text-gray-600">مستخدم واحد نشط</p>
+              <span className="inline-block bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full mt-2">
+                نشط
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
+
+
+/* ---- File: src/pages/DimensionalGroups/DimensionalGroupForm.tsx ---- */
+
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import { DimensionalGroup, FormMode } from '@/types';
+import { useCodeDefinitions } from '@/hooks/useCodeDefinitions';
+import { useDimensionalGroups } from '@/hooks/useDimensionalGroups';
+import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
+import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
+
+interface DimensionalGroupFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: Partial<DimensionalGroup>) => void;
+  initialData?: DimensionalGroup | null;
+  mode: FormMode;
+  loading?: boolean;
+}
+
+const validationSchema = yup.object({
+  code_definition_id: yup
+    .number()
+    .nullable()
+    .required('تعريف الكود مطلوب'),
+  dimensional_group_name: yup
+    .string()
+    .required('اسم المجموعة مطلوب')
+    .max(50, 'اسم المجموعة يجب ألا يزيد عن 50 حرف'),
+  dimensional_group_description: yup
+    .string()
+    .nullable(),
+  is_need_permission: yup.boolean().nullable(),
+  is_constant: yup.boolean().nullable(),
+  is_active: yup.boolean().nullable(),
+  level: yup.number().nullable().min(1, 'المستوى يجب أن يكون أكبر من 0'),
+  dimensional_group_father_id: yup.number().nullable(),
+  dimensional_group_sort: yup.number().nullable().min(0, 'الترتيب لا يمكن أن يكون سالب')
+});
+
+type FormData = yup.InferType<typeof validationSchema>;
+
+const DimensionalGroupForm: React.FC<DimensionalGroupFormProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  initialData,
+  mode,
+  loading = false
+}) => {
+  const { data: codeDefinitions } = useCodeDefinitions();
+  const { data: dimensionalGroups } = useDimensionalGroups();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch
+  } = useForm<FormData>({
+    resolver: yupResolver(validationSchema),
+    defaultValues: {
+      code_definition_id: initialData?.code_definition_id || null,
+      dimensional_group_name: initialData?.dimensional_group_name || '',
+      dimensional_group_description: initialData?.dimensional_group_description || '',
+      is_need_permission: initialData?.is_need_permission ?? false,
+      is_constant: initialData?.is_constant ?? false,
+      is_active: initialData?.is_active ?? true,
+      level: initialData?.level || null,
+      dimensional_group_father_id: initialData?.dimensional_group_father_id || null,
+      dimensional_group_sort: initialData?.dimensional_group_sort || null
+    }
+  });
+
+  React.useEffect(() => {
+    if (isOpen && initialData) {
+      reset({
+        code_definition_id: initialData.code_definition_id || null,
+        dimensional_group_name: initialData.dimensional_group_name || '',
+        dimensional_group_description: initialData.dimensional_group_description || '',
+        is_need_permission: initialData.is_need_permission ?? false,
+        is_constant: initialData.is_constant ?? false,
+        is_active: initialData.is_active ?? true,
+        level: initialData.level || null,
+        dimensional_group_father_id: initialData.dimensional_group_father_id || null,
+        dimensional_group_sort: initialData.dimensional_group_sort || null
+      });
+    } else if (isOpen && mode === FormMode.CREATE) {
+      reset({
+        code_definition_id: null,
+        dimensional_group_name: '',
+        dimensional_group_description: '',
+        is_need_permission: false,
+        is_constant: false,
+        is_active: true,
+        level: null,
+        dimensional_group_father_id: null,
+        dimensional_group_sort: null
+      });
+    }
+  }, [isOpen, initialData, mode, reset]);
+
+  const handleFormSubmit = (data: FormData) => {
+    onSubmit(data);
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const isReadOnly = mode === FormMode.VIEW;
+
+  const getTitle = () => {
+    switch (mode) {
+      case FormMode.CREATE:
+        return 'إضافة مجموعة أبعاد جديدة';
+      case FormMode.EDIT:
+        return 'تعديل مجموعة الأبعاد';
+      case FormMode.VIEW:
+        return 'عرض مجموعة الأبعاد';
+      default:
+        return 'مجموعة الأبعاد';
+    }
+  };
+
+  // Filter parent groups (exclude current group and its children)
+  const availableParentGroups = dimensionalGroups?.filter(group => 
+    group.dimensional_group_id !== initialData?.dimensional_group_id &&
+    group.dimensional_group_father_id !== initialData?.dimensional_group_id
+  ) || [];
+
+  return (
+    <Modal isOpen={isOpen} onClose={handleClose} title={getTitle()} size="lg">
+      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Select
+            label="تعريف الكود *"
+            {...register('code_definition_id')}
+            options={
+              codeDefinitions?.map(cd => ({
+                value: cd.code_definition_id,
+                label: cd.code_definition_code || `كود ${cd.code_definition_id}`
+              })) || []
+            }
+            error={errors.code_definition_id?.message}
+            disabled={isReadOnly}
+          />
+
+          <Input
+            label="اسم المجموعة *"
+            placeholder="أدخل اسم مجموعة الأبعاد"
+            {...register('dimensional_group_name')}
+            error={errors.dimensional_group_name?.message}
+            disabled={isReadOnly}
+          />
+        </div>
+
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            وصف المجموعة
+          </label>
+          <textarea
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
+            rows={3}
+            placeholder="أدخل وصف مجموعة الأبعاد"
+            {...register('dimensional_group_description')}
+            disabled={isReadOnly}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="المستوى"
+            type="number"
+            placeholder="أدخل المستوى"
+            {...register('level')}
+            error={errors.level?.message}
+            disabled={isReadOnly}
+          />
+
+          <Input
+            label="ترتيب المجموعة"
+            type="number"
+            placeholder="أدخل الترتيب"
+            {...register('dimensional_group_sort')}
+            error={errors.dimensional_group_sort?.message}
+            disabled={isReadOnly}
+          />
+        </div>
+
+        <Select
+          label="المجموعة الأب"
+          {...register('dimensional_group_father_id')}
+          options={
+            availableParentGroups.map(group => ({
+              value: group.dimensional_group_id,
+              label: group.dimensional_group_name || `مجموعة ${group.dimensional_group_id}`
+            }))
+          }
+          disabled={isReadOnly}
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Select
+            label="حالة النشاط"
+            {...register('is_active')}
+            options={[
+              { value: true, label: 'نشط' },
+              { value: false, label: 'غير نشط' }
+            ]}
+            disabled={isReadOnly}
+          />
+
+          <Select
+            label="يحتاج صلاحية"
+            {...register('is_need_permission')}
+            options={[
+              { value: true, label: 'نعم' },
+              { value: false, label: 'لا' }
+            ]}
+            disabled={isReadOnly}
+          />
+
+          <Select
+            label="ثابت"
+            {...register('is_constant')}
+            options={[
+              { value: true, label: 'نعم' },
+              { value: false, label: 'لا' }
+            ]}
+            disabled={isReadOnly}
+          />
+        </div>
+
+        <div className="flex gap-3 pt-4">
+          {!isReadOnly && (
+            <Button
+              type="submit"
+              variant="primary"
+              loading={loading}
+              disabled={loading}
+            >
+              {mode === FormMode.CREATE ? 'إضافة' : 'حفظ التغييرات'}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleClose}
+            disabled={loading}
+          >
+            {isReadOnly ? 'إغلاق' : 'إلغاء'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default DimensionalGroupForm;
+
+
+/* ---- File: src/pages/DimensionalGroups/DimensionalGroups.tsx ---- */
+
+import React, { useState } from 'react';
+import { Plus, Edit, Eye, Trash2, Settings } from 'lucide-react';
+import { DimensionalGroup, FormMode, TableColumn } from '@/types';
+import {
+  useDimensionalGroups,
+  useCreateDimensionalGroup,
+  useUpdateDimensionalGroup,
+  useDeleteDimensionalGroup
+} from '@/hooks/useDimensionalGroups';
+import Button from '@/components/ui/Button';
+import Table from '@/components/ui/Table';
+import DimensionalGroupForm from './DimensionalGroupForm';
+import toast from 'react-hot-toast';
+
+const DimensionalGroups: React.FC = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<DimensionalGroup | null>(null);
+  const [formMode, setFormMode] = useState<FormMode>(FormMode.CREATE);
+
+  // Hooks
+  const { data: dimensionalGroups, isLoading } = useDimensionalGroups();
+  const createMutation = useCreateDimensionalGroup();
+  const updateMutation = useUpdateDimensionalGroup();
+  const deleteMutation = useDeleteDimensionalGroup();
+
+  // Handlers
+  const handleCreate = () => {
+    setSelectedItem(null);
+    setFormMode(FormMode.CREATE);
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (item: DimensionalGroup) => {
+    setSelectedItem(item);
+    setFormMode(FormMode.EDIT);
+    setIsModalOpen(true);
+  };
+
+  const handleView = (item: DimensionalGroup) => {
+    setSelectedItem(item);
+    setFormMode(FormMode.VIEW);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (item: DimensionalGroup) => {
+    if (window.confirm('هل أنت متأكد من حذف هذه المجموعة؟\nملاحظة: سيتم حذف جميع الأبعاد المرتبطة بها.')) {
+      deleteMutation.mutate(item.dimensional_group_id);
+    }
+  };
+
+  const handleFormSubmit = async (data: Partial<DimensionalGroup>) => {
+    try {
+      if (formMode === FormMode.CREATE) {
+        await createMutation.mutateAsync(data as Omit<DimensionalGroup, 'dimensional_group_id'>);
+      } else if (formMode === FormMode.EDIT && selectedItem) {
+        await updateMutation.mutateAsync({
+          id: selectedItem.dimensional_group_id,
+          data
+        });
+      }
+      setIsModalOpen(false);
+      setSelectedItem(null);
+    } catch (error) {
+      // Error handling is done in the hooks
+    }
+  };
+
+  // Table configuration
+  const columns: TableColumn[] = [
+    {
+      key: 'dimensional_group_id',
+      title: 'المعرف',
+      width: 80
+    },
+    {
+      key: 'dimensional_group_name',
+      title: 'اسم المجموعة',
+      width: 200
+    },
+    {
+      key: 'dimensional_group_description',
+      title: 'الوصف',
+      width: 250,
+      render: (value) => value ? (
+        <div className="max-w-xs truncate" title={value}>
+          {value}
+        </div>
+      ) : '-'
+    },
+    {
+      key: 'level',
+      title: 'المستوى',
+      width: 80,
+      render: (value) => value ?? '-'
+    },
+    {
+      key: 'dimensional_group_sort',
+      title: 'الترتيب',
+      width: 80,
+      render: (value) => value ?? '-'
+    },
+    {
+      key: 'is_active',
+      title: 'حالة النشاط',
+      width: 100,
+      render: (value) => (
+        <span className={`px-2 py-1 rounded-full text-xs ${
+          value 
+            ? 'bg-success text-white' 
+            : 'bg-gray-300 text-gray-700'
+        }`}>
+          {value ? 'نشط' : 'غير نشط'}
+        </span>
+      )
+    },
+    {
+      key: 'is_need_permission',
+      title: 'يحتاج صلاحية',
+      width: 120,
+      render: (value) => (
+        <span className={`px-2 py-1 rounded-full text-xs ${
+          value 
+            ? 'bg-warning text-white' 
+            : 'bg-gray-200 text-gray-600'
+        }`}>
+          {value ? 'نعم' : 'لا'}
+        </span>
+      )
+    },
+    {
+      key: 'is_constant',
+      title: 'ثابت',
+      width: 80,
+      render: (value) => (
+        <span className={`px-2 py-1 rounded-full text-xs ${
+          value 
+            ? 'bg-primary text-white' 
+            : 'bg-gray-200 text-gray-600'
+        }`}>
+          {value ? 'نعم' : 'لا'}
+        </span>
+      )
+    },
+    {
+      key: 'created_at',
+      title: 'تاريخ الإضافة',
+      width: 120,
+      render: (value) => value ? new Date(value).toLocaleDateString('ar-SA') : '-'
+    },
+    {
+      key: 'actions',
+      title: 'الإجراءات',
+      width: 140,
+      render: (_, record: DimensionalGroup) => (
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleView(record)}
+            className="p-1"
+            title="عرض"
+          >
+            <Eye className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleEdit(record)}
+            className="p-1"
+            title="تعديل"
+          >
+            <Edit className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleDelete(record)}
+            className="p-1 text-error hover:bg-red-50"
+            title="حذف"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      )
+    }
+  ];
+
+  // Statistics
+  const activeGroups = dimensionalGroups?.filter(g => g.is_active).length || 0;
+  const constantGroups = dimensionalGroups?.filter(g => g.is_constant).length || 0;
+  const permissionGroups = dimensionalGroups?.filter(g => g.is_need_permission).length || 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">مجموعات الأبعاد</h1>
+          <p className="text-gray-600 mt-1">إدارة مجموعات الأبعاد وتنظيمها</p>
+        </div>
+        <Button
+          variant="primary"
+          onClick={handleCreate}
+          className="flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          إضافة مجموعة جديدة
+        </Button>
+      </div>
+
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">إجمالي المجموعات</h3>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {dimensionalGroups?.length || 0}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">المجموعات النشطة</h3>
+          <p className="text-2xl font-bold text-success mt-1">
+            {activeGroups}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">المجموعات الثابتة</h3>
+          <p className="text-2xl font-bold text-primary mt-1">
+            {constantGroups}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">تحتاج صلاحية</h3>
+          <p className="text-2xl font-bold text-warning mt-1">
+            {permissionGroups}
+          </p>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <Table
+          columns={columns}
+          data={dimensionalGroups || []}
+          loading={isLoading}
+          emptyText="لا توجد مجموعات أبعاد"
+        />
+      </div>
+
+      {/* Form Modal */}
+      <DimensionalGroupForm
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleFormSubmit}
+        initialData={selectedItem}
+        mode={formMode}
+        loading={createMutation.isLoading || updateMutation.isLoading}
+      />
+    </div>
+  );
+};
+
+export default DimensionalGroups;
+
+
+/* ---- File: src/pages/DimensionalGroups/DimensionalGroupsPage.tsx ---- */
+
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Typography,
+  Button,
+  Card,
+  CardContent,
+  Grid,
+  IconButton,
+  Chip,
+  Box,
+  Alert,
+  Collapse,
+  TreeView,
+  TreeItem
+} from '@mui/material';
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  ExpandMore as ExpandMoreIcon,
+  ChevronRight as ChevronRightIcon,
+  Visibility as ViewIcon,
+  Settings as SettingsIcon
+} from '@mui/icons-material';
+import { DimensionalGroup, GroupFieldsUsage } from '../types/dimensionalGroups';
+import { DimensionalGroupService } from '../services/dimensionalGroups';
+import { GroupForm } from '../components/GroupForm';
+import { GroupFieldsUsageComponent } from '../components/GroupFieldsUsage';
+
+export const DimensionalGroupsPage: React.FC = () => {
+  const [groups, setGroups] = useState<DimensionalGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<DimensionalGroup | null>(null);
+  const [selectedGroupUsage, setSelectedGroupUsage] = useState<GroupFieldsUsage | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+  const [codeDefinitions, setCodeDefinitions] = useState<any[]>([]);
+  const [dimensionals, setDimensionals] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadGroups();
+    loadSupplementaryData();
+  }, []);
+
+  const loadGroups = async () => {
+    try {
+      setLoading(true);
+      const data = await DimensionalGroupService.getAll();
+      setGroups(data);
+    } catch (error) {
+      console.error('Error loading groups:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSupplementaryData = async () => {
+    // Load code definitions and dimensionals for the form
+    // This would be implemented based on your services
+  };
+
+  const handleAddGroup = () => {
+    setSelectedGroup(null);
+    setFormOpen(true);
+  };
+
+  const handleEditGroup = (group: DimensionalGroup) => {
+    setSelectedGroup(group);
+    setFormOpen(true);
+  };
+
+  const handleViewGroupUsage = async (group: DimensionalGroup) => {
+    try {
+      const usage = await DimensionalGroupService.getFieldsUsage(group.dimensional_group_id);
+      setSelectedGroup(group);
+      setSelectedGroupUsage(usage);
+    } catch (error) {
+      console.error('Error loading group usage:', error);
+    }
+  };
+
+  const handleSaveGroup = (group: DimensionalGroup) => {
+    loadGroups(); // Reload the list
+    setFormOpen(false);
+  };
+
+  const handleDeleteGroup = async (group: DimensionalGroup) => {
+    if (window.confirm('هل أنت متأكد من حذف هذه المجموعة؟')) {
+      try {
+        await DimensionalGroupService.delete(group.dimensional_group_id);
+        loadGroups();
+      } catch (error) {
+        console.error('Error deleting group:', error);
+        alert('حدث خطأ أثناء حذف المجموعة');
+      }
+    }
+  };
+
+  const buildGroupTree = (groups: DimensionalGroup[], parentId: number | null = null): DimensionalGroup[] => {
+    return groups
+      .filter(group => group.dimensional_group_father_id === parentId)
+      .sort((a, b) => (a.dimensional_group_sort || 0) - (b.dimensional_group_sort || 0));
+  };
+
+  const renderGroupCard = (group: DimensionalGroup) => (
+    <Card key={group.dimensional_group_id} sx={{ mb: 2 }}>
+      <CardContent>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+          <Box flex={1}>
+            <Typography variant="h6" gutterBottom>
+              {group.dimensional_group_name}
+              <Chip 
+                label={`المستوى ${group.level || 0}`} 
+                size="small" 
+                sx={{ ml: 1 }}
+                color="primary"
+              />
+              {group.is_constant && (
+                <Chip 
+                  label="ثابتة" 
+                  size="small" 
+                  sx={{ ml: 1 }}
+                  color="warning"
+                />
+              )}
+              {group.is_need_permission && (
+                <Chip 
+                  label="تحتاج صلاحيات" 
+                  size="small" 
+                  sx={{ ml: 1 }}
+                  color="error"
+                />
+              )}
+              {!group.is_active && (
+                <Chip 
+                  label="غير نشطة" 
+                  size="small" 
+                  sx={{ ml: 1 }}
+                  color="default"
+                />
+              )}
+            </Typography>
+            
+            {group.dimensional_group_description && (
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                {group.dimensional_group_description}
+              </Typography>
+            )}
+
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2">حدود حقول المجموعة:</Typography>
+                <Box display="flex" gap={1} flexWrap="wrap">
+                  <Chip size="small" label={`نصية: ${group.text_flows_count || 0}`} />
+                  <Chip size="small" label={`رقمية: ${group.number_flows_count || 0}`} />
+                  <Chip size="small" label={`تاريخ: ${group.date_flows_count || 0}`} />
+                  <Chip size="small" label={`منطقية: ${group.boolean_flows_count || 0}`} />
+                </Box>
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2">حدود حقول الأبعاد:</Typography>
+                <Box display="flex" gap={1} flexWrap="wrap">
+                  <Chip size="small" label={`نصية: ${group.dimensional_text_flows_count || 0}`} />
+                  <Chip size="small" label={`رقمية: ${group.dimensional_number_flows_count || 0}`} />
+                  <Chip size="small" label={`تاريخ: ${group.dimensional_date_flows_count || 0}`} />
+                  <Chip size="small" label={`وصف: ${group.dimensional_description_flows_count || 0}`} />
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Box display="flex" gap={1}>
+            <IconButton
+              size="small"
+              onClick={() => handleViewGroupUsage(group)}
+              title="عرض استخدام الحقول"
+            >
+              <ViewIcon />
+            </IconButton>
+            
+            <IconButton
+              size="small"
+              onClick={() => handleEditGroup(group)}
+              disabled={group.is_constant}
+              title="تعديل"
+            >
+              <EditIcon />
+            </IconButton>
+            
+            <IconButton
+              size="small"
+              onClick={() => handleDeleteGroup(group)}
+              disabled={group.is_constant}
+              color="error"
+              title="حذف"
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Box>
+        </Box>
+
+        {/* عرض المجموعات الفرعية */}
+        {buildGroupTree(groups, group.dimensional_group_id).length > 0 && (
+          <Box sx={{ mt: 2, pl: 2, borderLeft: '2px solid #e0e0e0' }}>
+            <Typography variant="subtitle2" gutterBottom>
+              المجموعات الفرعية:
+            </Typography>
+            {buildGroupTree(groups, group.dimensional_group_id).map(child => (
+              <Box key={child.dimensional_group_id} sx={{ mb: 1 }}>
+                {renderGroupCard(child)}
+              </Box>
+            ))}
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  const rootGroups = buildGroupTree(groups, null);
+
+  return (
+    <Container maxWidth="xl">
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h4" component="h1">
+          إدارة مجموعات الأبعاد
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleAddGroup}
+        >
+          إضافة مجموعة جديدة
+        </Button>
+      </Box>
+
+      <Alert severity="info" sx={{ mb: 3 }}>
+        مجموعات الأبعاد تساعد في تنظيم وإدارة البيانات بشكل هرمي مع تحديد حدود الحقول لكل مجموعة
+      </Alert>
+
+      {/* عرض استخدام الحقول للمجموعة المحددة */}
+      {selectedGroup && selectedGroupUsage && (
+        <Collapse in={Boolean(selectedGroupUsage)}>
+          <Card sx={{ mb: 3, bgcolor: '#f5f5f5' }}>
+            <CardContent>
+              <Box display="flex" justifyContent="between" alignItems="center" mb={2}>
+                <Typography variant="h6">
+                  استخدام الحقول - {selectedGroup.dimensional_group_name}
+                </Typography>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setSelectedGroup(null);
+                    setSelectedGroupUsage(null);
+                  }}
+                >
+                  إغلاق
+                </Button>
+              </Box>
+              <GroupFieldsUsageComponent 
+                group={selectedGroup} 
+                usage={selectedGroupUsage} 
+              />
+            </CardContent>
+          </Card>
+        </Collapse>
+      )}
+
+      {/* قائمة المجموعات */}
+      {loading ? (
+        <Typography>جاري التحميل...</Typography>
+      ) : rootGroups.length === 0 ? (
+        <Card>
+          <CardContent>
+            <Typography variant="h6" align="center">
+              لا توجد مجموعات حالياً
+            </Typography>
+            <Typography variant="body2" align="center" color="text.secondary">
+              ابدأ بإضافة مجموعة جديدة لتنظيم بياناتك
+            </Typography>
+          </CardContent>
+        </Card>
+      ) : (
+        <Box>
+          {rootGroups.map(group => renderGroupCard(group))}
+        </Box>
+      )}
+
+      {/* نموذج إضافة/تعديل المجموعة */}
+      <GroupForm
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSave={handleSaveGroup}
+        group={selectedGroup}
+        codeDefinitions={codeDefinitions}
+        dimensionals={dimensionals}
+        parentGroups={groups.filter(g => 
+          !selectedGroup || g.dimensional_group_id !== selectedGroup.dimensional_group_id
+        )}
+      />
+    </Container>
+  );
+};
+
+
+
+/* ---- File: src/pages/Dimensionals/DimensionalForm.tsx ---- */
+
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import { Dimensional, FormMode } from '@/types';
+import { useDimensionalGroups } from '@/hooks/useDimensionalGroups';
+import { useDimensionals } from '@/hooks/useDimensionals';
+import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
+import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
+
+interface DimensionalFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: Partial<Dimensional>) => void;
+  initialData?: Dimensional | null;
+  mode: FormMode;
+  loading?: boolean;
+}
+
+const validationSchema = yup.object({
+  dimensional_group_id: yup
+    .number()
+    .nullable()
+    .required('مجموعة الأبعاد مطلوبة'),
+  dimensional_name: yup
+    .string()
+    .required('اسم البعد مطلوب')
+    .max(50, 'اسم البعد يجب ألا يزيد عن 50 حرف'),
+  is_active: yup.boolean().nullable(),
+  level: yup.number().nullable().min(1, 'المستوى يجب أن يكون أكبر من 0'),
+  dimensional_father_id: yup.number().nullable(),
+  dimensional_sort: yup.number().nullable().min(0, 'الترتيب لا يمكن أن يكون سالب')
+});
+
+type FormData = yup.InferType<typeof validationSchema>;
+
+const DimensionalForm: React.FC<DimensionalFormProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  initialData,
+  mode,
+  loading = false
+}) => {
+  const { data: dimensionalGroups } = useDimensionalGroups();
+  const { data: dimensionals } = useDimensionals();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch
+  } = useForm<FormData>({
+    resolver: yupResolver(validationSchema),
+    defaultValues: {
+      dimensional_group_id: initialData?.dimensional_group_id || null,
+      dimensional_name: initialData?.dimensional_name || '',
+      is_active: initialData?.is_active ?? true,
+      level: initialData?.level || null,
+      dimensional_father_id: initialData?.dimensional_father_id || null,
+      dimensional_sort: initialData?.dimensional_sort || null
+    }
+  });
+
+  const selectedGroupId = watch('dimensional_group_id');
+
+  React.useEffect(() => {
+    if (isOpen && initialData) {
+      reset({
+        dimensional_group_id: initialData.dimensional_group_id || null,
+        dimensional_name: initialData.dimensional_name || '',
+        is_active: initialData.is_active ?? true,
+        level: initialData.level || null,
+        dimensional_father_id: initialData.dimensional_father_id || null,
+        dimensional_sort: initialData.dimensional_sort || null
+      });
+    } else if (isOpen && mode === FormMode.CREATE) {
+      reset({
+        dimensional_group_id: null,
+        dimensional_name: '',
+        is_active: true,
+        level: null,
+        dimensional_father_id: null,
+        dimensional_sort: null
+      });
+    }
+  }, [isOpen, initialData, mode, reset]);
+
+  const handleFormSubmit = (data: FormData) => {
+    onSubmit(data);
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const isReadOnly = mode === FormMode.VIEW;
+
+  const getTitle = () => {
+    switch (mode) {
+      case FormMode.CREATE:
+        return 'إضافة بعد جديد';
+      case FormMode.EDIT:
+        return 'تعديل البعد';
+      case FormMode.VIEW:
+        return 'عرض البعد';
+      default:
+        return 'البعد';
+    }
+  };
+
+  // Filter parent dimensionals (exclude current dimensional and its children, and same group only)
+  const availableParentDimensionals = dimensionals?.filter(dim => 
+    dim.dimensional_id !== initialData?.dimensional_id &&
+    dim.dimensional_father_id !== initialData?.dimensional_id &&
+    dim.dimensional_group_id === selectedGroupId
+  ) || [];
+
+  return (
+    <Modal isOpen={isOpen} onClose={handleClose} title={getTitle()} size="lg">
+      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Select
+            label="مجموعة الأبعاد *"
+            {...register('dimensional_group_id')}
+            options={
+              dimensionalGroups?.map(group => ({
+                value: group.dimensional_group_id,
+                label: group.dimensional_group_name || `مجموعة ${group.dimensional_group_id}`
+              })) || []
+            }
+            error={errors.dimensional_group_id?.message}
+            disabled={isReadOnly}
+          />
+
+          <Input
+            label="اسم البعد *"
+            placeholder="أدخل اسم البعد"
+            {...register('dimensional_name')}
+            error={errors.dimensional_name?.message}
+            disabled={isReadOnly}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Input
+            label="المستوى"
+            type="number"
+            placeholder="أدخل المستوى"
+            {...register('level')}
+            error={errors.level?.message}
+            disabled={isReadOnly}
+          />
+
+          <Input
+            label="ترتيب البعد"
+            type="number"
+            placeholder="أدخل الترتيب"
+            {...register('dimensional_sort')}
+            error={errors.dimensional_sort?.message}
+            disabled={isReadOnly}
+          />
+
+          <Select
+            label="حالة النشاط"
+            {...register('is_active')}
+            options={[
+              { value: true, label: 'نشط' },
+              { value: false, label: 'غير نشط' }
+            ]}
+            disabled={isReadOnly}
+          />
+        </div>
+
+        <Select
+          label="البعد الأب"
+          {...register('dimensional_father_id')}
+          options={
+            availableParentDimensionals.map(dim => ({
+              value: dim.dimensional_id,
+              label: dim.dimensional_name || `بعد ${dim.dimensional_id}`
+            }))
+          }
+          disabled={isReadOnly || !selectedGroupId}
+          helperText={!selectedGroupId ? 'يجب اختيار مجموعة الأبعاد أولاً' : undefined}
+        />
+
+        <div className="flex gap-3 pt-4">
+          {!isReadOnly && (
+            <Button
+              type="submit"
+              variant="primary"
+              loading={loading}
+              disabled={loading}
+            >
+              {mode === FormMode.CREATE ? 'إضافة' : 'حفظ التغييرات'}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleClose}
+            disabled={loading}
+          >
+            {isReadOnly ? 'إغلاق' : 'إلغاء'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default DimensionalForm;
+
+
+/* ---- File: src/pages/Dimensionals/Dimensionals.tsx ---- */
+
+import React, { useState } from 'react';
+import { Plus, Edit, Eye, Trash2, Filter } from 'lucide-react';
+import { Dimensional, FormMode, TableColumn } from '@/types';
+import {
+  useDimensionals,
+  useCreateDimensional,
+  useUpdateDimensional,
+  useDeleteDimensional
+} from '@/hooks/useDimensionals';
+import { useDimensionalGroups } from '@/hooks/useDimensionalGroups';
+import Button from '@/components/ui/Button';
+import Table from '@/components/ui/Table';
+import Select from '@/components/ui/Select';
+import DimensionalForm from './DimensionalForm';
+
+const Dimensionals: React.FC = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<Dimensional | null>(null);
+  const [formMode, setFormMode] = useState<FormMode>(FormMode.CREATE);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(undefined);
+
+  // Hooks
+  const { data: dimensionals, isLoading } = useDimensionals(
+    selectedGroupId ? { dimensional_group_id: selectedGroupId } : undefined
+  );
+  const { data: dimensionalGroups } = useDimensionalGroups();
+  const createMutation = useCreateDimensional();
+  const updateMutation = useUpdateDimensional();
+  const deleteMutation = useDeleteDimensional();
+
+  // Handlers
+  const handleCreate = () => {
+    setSelectedItem(null);
+    setFormMode(FormMode.CREATE);
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (item: Dimensional) => {
+    setSelectedItem(item);
+    setFormMode(FormMode.EDIT);
+    setIsModalOpen(true);
+  };
+
+  const handleView = (item: Dimensional) => {
+    setSelectedItem(item);
+    setFormMode(FormMode.VIEW);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (item: Dimensional) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا البعد؟\nملاحظة: قد يؤثر ذلك على البيانات المرتبطة.')) {
+      deleteMutation.mutate(item.dimensional_id);
+    }
+  };
+
+  const handleFormSubmit = async (data: Partial<Dimensional>) => {
+    try {
+      if (formMode === FormMode.CREATE) {
+        await createMutation.mutateAsync(data as Omit<Dimensional, 'dimensional_id'>);
+      } else if (formMode === FormMode.EDIT && selectedItem) {
+        await updateMutation.mutateAsync({
+          id: selectedItem.dimensional_id,
+          data
+        });
+      }
+      setIsModalOpen(false);
+      setSelectedItem(null);
+    } catch (error) {
+      // Error handling is done in the hooks
+    }
+  };
+
+  // Get group name by ID
+  const getGroupName = (groupId: number | null | undefined) => {
+    if (!groupId) return '-';
+    const group = dimensionalGroups?.find(g => g.dimensional_group_id === groupId);
+    return group?.dimensional_group_name || `مجموعة ${groupId}`;
+  };
+
+  // Get dimensional name by ID
+  const getDimensionalName = (dimensionalId: number | null | undefined) => {
+    if (!dimensionalId) return '-';
+    const dimensional = dimensionals?.find(d => d.dimensional_id === dimensionalId);
+    return dimensional?.dimensional_name || `بعد ${dimensionalId}`;
+  };
+
+  // Table configuration
+  const columns: TableColumn[] = [
+    {
+      key: 'dimensional_id',
+      title: 'المعرف',
+      width: 80
+    },
+    {
+      key: 'dimensional_name',
+      title: 'اسم البعد',
+      width: 200
+    },
+    {
+      key: 'dimensional_group_id',
+      title: 'المجموعة',
+      width: 180,
+      render: (value) => getGroupName(value)
+    },
+    {
+      key: 'dimensional_father_id',
+      title: 'البعد الأب',
+      width: 150,
+      render: (value) => getDimensionalName(value)
+    },
+    {
+      key: 'level',
+      title: 'المستوى',
+      width: 80,
+      render: (value) => value ?? '-'
+    },
+    {
+      key: 'dimensional_sort',
+      title: 'الترتيب',
+      width: 80,
+      render: (value) => value ?? '-'
+    },
+    {
+      key: 'is_active',
+      title: 'حالة النشاط',
+      width: 100,
+      render: (value) => (
+        <span className={`px-2 py-1 rounded-full text-xs ${
+          value 
+            ? 'bg-success text-white' 
+            : 'bg-gray-300 text-gray-700'
+        }`}>
+          {value ? 'نشط' : 'غير نشط'}
+        </span>
+      )
+    },
+    {
+      key: 'created_at',
+      title: 'تاريخ الإضافة',
+      width: 120,
+      render: (value) => value ? new Date(value).toLocaleDateString('ar-SA') : '-'
+    },
+    {
+      key: 'actions',
+      title: 'الإجراءات',
+      width: 140,
+      render: (_, record: Dimensional) => (
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleView(record)}
+            className="p-1"
+            title="عرض"
+          >
+            <Eye className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleEdit(record)}
+            className="p-1"
+            title="تعديل"
+          >
+            <Edit className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleDelete(record)}
+            className="p-1 text-error hover:bg-red-50"
+            title="حذف"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      )
+    }
+  ];
+
+  // Statistics
+  const activeDimensionals = dimensionals?.filter(d => d.is_active).length || 0;
+  const dimensionalsWithParent = dimensionals?.filter(d => d.dimensional_father_id).length || 0;
+  const topLevelDimensionals = dimensionals?.filter(d => !d.dimensional_father_id).length || 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">الأبعاد</h1>
+          <p className="text-gray-600 mt-1">إدارة الأبعاد والعناصر الفردية</p>
+        </div>
+        <Button
+          variant="primary"
+          onClick={handleCreate}
+          className="flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          إضافة بعد جديد
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <div className="flex items-center gap-4">
+          <Filter className="w-5 h-5 text-gray-500" />
+          <div className="flex-1 max-w-xs">
+            <Select
+              options={[
+                { value: '', label: 'جميع المجموعات' },
+                ...(dimensionalGroups?.map(group => ({
+                  value: group.dimensional_group_id,
+                  label: group.dimensional_group_name || `مجموعة ${group.dimensional_group_id}`
+                })) || [])
+              ]}
+              value={selectedGroupId || ''}
+              onChange={(e) => setSelectedGroupId(e.target.value ? Number(e.target.value) : undefined)}
+              placeholder="فلترة بمجموعة الأبعاد"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">إجمالي الأبعاد</h3>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {dimensionals?.length || 0}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">الأبعاد النشطة</h3>
+          <p className="text-2xl font-bold text-success mt-1">
+            {activeDimensionals}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">الأبعاد الرئيسية</h3>
+          <p className="text-2xl font-bold text-primary mt-1">
+            {topLevelDimensionals}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">الأبعاد الفرعية</h3>
+          <p className="text-2xl font-bold text-warning mt-1">
+            {dimensionalsWithParent}
+          </p>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <Table
+          columns={columns}
+          data={dimensionals || []}
+          loading={isLoading}
+          emptyText={selectedGroupId ? "لا توجد أبعاد في هذه المجموعة" : "لا توجد أبعاد"}
+        />
+      </div>
+
+      {/* Form Modal */}
+      <DimensionalForm
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleFormSubmit}
+        initialData={selectedItem}
+        mode={formMode}
+        loading={createMutation.isLoading || updateMutation.isLoading}
+      />
+    </div>
+  );
+};
+
+export default Dimensionals;
+
+
+/* ---- File: src/pages/Fields/FieldForm.tsx ---- */
+
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import { Field, FormMode } from '@/types';
+import { useDimensionals } from '@/hooks/useDimensionals';
+import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
+import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
+
+interface FieldFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: Partial<Field>) => void;
+  initialData?: Field | null;
+  mode: FormMode;
+  loading?: boolean;
+}
+
+const validationSchema = yup.object({
+  field_code: yup
+    .string()
+    .required('كود الحقل مطلوب')
+    .max(20, 'كود الحقل يجب ألا يزيد عن 20 حرف'),
+  field_name: yup
+    .string()
+    .required('اسم الحقل مطلوب')
+    .max(50, 'اسم الحقل يجب ألا يزيد عن 50 حرف'),
+  field_type_dimensional_id: yup
+    .number()
+    .nullable()
+    .required('نوع الحقل مطلوب')
+});
+
+type FormData = yup.InferType<typeof validationSchema>;
+
+const FieldForm: React.FC<FieldFormProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  initialData,
+  mode,
+  loading = false
+}) => {
+  const { data: dimensionals } = useDimensionals();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset
+  } = useForm<FormData>({
+    resolver: yupResolver(validationSchema),
+    defaultValues: {
+      field_code: initialData?.field_code || '',
+      field_name: initialData?.field_name || '',
+      field_type_dimensional_id: initialData?.field_type_dimensional_id || null
+    }
+  });
+
+  React.useEffect(() => {
+    if (isOpen && initialData) {
+      reset({
+        field_code: initialData.field_code || '',
+        field_name: initialData.field_name || '',
+        field_type_dimensional_id: initialData.field_type_dimensional_id || null
+      });
+    } else if (isOpen && mode === FormMode.CREATE) {
+      reset({
+        field_code: '',
+        field_name: '',
+        field_type_dimensional_id: null
+      });
+    }
+  }, [isOpen, initialData, mode, reset]);
+
+  const handleFormSubmit = (data: FormData) => {
+    onSubmit(data);
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const isReadOnly = mode === FormMode.VIEW;
+
+  const getTitle = () => {
+    switch (mode) {
+      case FormMode.CREATE:
+        return 'إضافة حقل جديد';
+      case FormMode.EDIT:
+        return 'تعديل الحقل';
+      case FormMode.VIEW:
+        return 'عرض الحقل';
+      default:
+        return 'الحقل';
+    }
+  };
+
+  // Group dimensionals by field types (assuming we have predefined field type dimensionals)
+  const fieldTypeDimensionals = dimensionals?.filter(d => 
+    d.dimensional_name && [
+      'نص', 'text', 'رقم', 'number', 'منطقي', 'boolean', 
+      'تاريخ', 'date', 'وصف', 'description', 'مرجع', 'id'
+    ].some(type => 
+      d.dimensional_name.toLowerCase().includes(type.toLowerCase())
+    )
+  ) || [];
+
+  return (
+    <Modal isOpen={isOpen} onClose={handleClose} title={getTitle()} size="md">
+      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+        <Input
+          label="كود الحقل *"
+          placeholder="أدخل كود الحقل (مثل: FLD001)"
+          {...register('field_code')}
+          error={errors.field_code?.message}
+          disabled={isReadOnly}
+          helperText="كود فريد للحقل باللغة الإنجليزية"
+        />
+
+        <Input
+          label="اسم الحقل *"
+          placeholder="أدخل اسم الحقل"
+          {...register('field_name')}
+          error={errors.field_name?.message}
+          disabled={isReadOnly}
+          helperText="الاسم الذي سيظهر للمستخدم"
+        />
+
+        <Select
+          label="نوع الحقل *"
+          {...register('field_type_dimensional_id')}
+          options={
+            fieldTypeDimensionals.map(dim => ({
+              value: dim.dimensional_id,
+              label: dim.dimensional_name || `نوع ${dim.dimensional_id}`
+            }))
+          }
+          error={errors.field_type_dimensional_id?.message}
+          disabled={isReadOnly}
+          helperText="نوع البيانات للحقل"
+        />
+
+        <div className="flex gap-3 pt-4">
+          {!isReadOnly && (
+            <Button
+              type="submit"
+              variant="primary"
+              loading={loading}
+              disabled={loading}
+            >
+              {mode === FormMode.CREATE ? 'إضافة' : 'حفظ التغييرات'}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleClose}
+            disabled={loading}
+          >
+            {isReadOnly ? 'إغلاق' : 'إلغاء'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default FieldForm;
+
+
+/* ---- File: src/pages/Fields/Fields.tsx ---- */
+
+import React, { useState } from 'react';
+import { Plus, Edit, Eye, Trash2 } from 'lucide-react';
+import { Field, FormMode, TableColumn } from '@/types';
+import {
+  useFields,
+  useCreateField,
+  useUpdateField,
+  useDeleteField
+} from '@/hooks/useFields';
+import { useDimensionals } from '@/hooks/useDimensionals';
+import Button from '@/components/ui/Button';
+import Table from '@/components/ui/Table';
+import FieldForm from './FieldForm';
+
+const Fields: React.FC = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<Field | null>(null);
+  const [formMode, setFormMode] = useState<FormMode>(FormMode.CREATE);
+
+  // Hooks
+  const { data: fields, isLoading } = useFields();
+  const { data: dimensionals } = useDimensionals();
+  const createMutation = useCreateField();
+  const updateMutation = useUpdateField();
+  const deleteMutation = useDeleteField();
+
+  // Handlers
+  const handleCreate = () => {
+    setSelectedItem(null);
+    setFormMode(FormMode.CREATE);
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (item: Field) => {
+    setSelectedItem(item);
+    setFormMode(FormMode.EDIT);
+    setIsModalOpen(true);
+  };
+
+  const handleView = (item: Field) => {
+    setSelectedItem(item);
+    setFormMode(FormMode.VIEW);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (item: Field) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا الحقل؟\nملاحظة: قد يؤثر ذلك على البيانات المرتبطة.')) {
+      deleteMutation.mutate(item.field_id);
+    }
+  };
+
+  const handleFormSubmit = async (data: Partial<Field>) => {
+    try {
+      if (formMode === FormMode.CREATE) {
+        await createMutation.mutateAsync(data as Omit<Field, 'field_id'>);
+      } else if (formMode === FormMode.EDIT && selectedItem) {
+        await updateMutation.mutateAsync({
+          id: selectedItem.field_id,
+          data
+        });
+      }
+      setIsModalOpen(false);
+      setSelectedItem(null);
+    } catch (error) {
+      // Error handling is done in the hooks
+    }
+  };
+
+  // Get dimensional name by ID
+  const getDimensionalName = (dimensionalId: number | null | undefined) => {
+    if (!dimensionalId) return '-';
+    const dimensional = dimensionals?.find(d => d.dimensional_id === dimensionalId);
+    return dimensional?.dimensional_name || `نوع ${dimensionalId}`;
+  };
+
+  // Table configuration
+  const columns: TableColumn[] = [
+    {
+      key: 'field_id',
+      title: 'المعرف',
+      width: 80
+    },
+    {
+      key: 'field_code',
+      title: 'كود الحقل',
+      width: 150
+    },
+    {
+      key: 'field_name',
+      title: 'اسم الحقل',
+      width: 200
+    },
+    {
+      key: 'field_type_dimensional_id',
+      title: 'نوع الحقل',
+      width: 150,
+      render: (value) => (
+        <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+          {getDimensionalName(value)}
+        </span>
+      )
+    },
+    {
+      key: 'created_at',
+      title: 'تاريخ الإضافة',
+      width: 120,
+      render: (value) => value ? new Date(value).toLocaleDateString('ar-SA') : '-'
+    },
+    {
+      key: 'actions',
+      title: 'الإجراءات',
+      width: 140,
+      render: (_, record: Field) => (
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleView(record)}
+            className="p-1"
+            title="عرض"
+          >
+            <Eye className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleEdit(record)}
+            className="p-1"
+            title="تعديل"
+          >
+            <Edit className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleDelete(record)}
+            className="p-1 text-error hover:bg-red-50"
+            title="حذف"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      )
+    }
+  ];
+
+  // Get field type statistics
+  const fieldTypeStats = dimensionals?.reduce((acc, dim) => {
+    const fieldsOfType = fields?.filter(f => f.field_type_dimensional_id === dim.dimensional_id).length || 0;
+    if (fieldsOfType > 0) {
+      acc[dim.dimensional_name || 'غير محدد'] = fieldsOfType;
+    }
+    return acc;
+  }, {} as Record<string, number>) || {};
+
+  const mostUsedType = Object.entries(fieldTypeStats).sort(([,a], [,b]) => b - a)[0];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">الحقول</h1>
+          <p className="text-gray-600 mt-1">إدارة حقول البيانات وأنواعها</p>
+        </div>
+        <Button
+          variant="primary"
+          onClick={handleCreate}
+          className="flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          إضافة حقل جديد
+        </Button>
+      </div>
+
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">إجمالي الحقول</h3>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {fields?.length || 0}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">أنواع الحقول المختلفة</h3>
+          <p className="text-2xl font-bold text-primary mt-1">
+            {Object.keys(fieldTypeStats).length}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">النوع الأكثر استخداماً</h3>
+          <p className="text-sm font-bold text-success mt-1">
+            {mostUsedType ? mostUsedType[0] : 'لا يوجد'}
+          </p>
+          <p className="text-xs text-gray-500">
+            {mostUsedType ? `${mostUsedType[1]} حقل` : ''}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-sm font-medium text-gray-500">الحقول النشطة</h3>
+          <p className="text-2xl font-bold text-success mt-1">
+            {fields?.length || 0}
+          </p>
+        </div>
+      </div>
+
+      {/* Field Types Distribution */}
+      {Object.keys(fieldTypeStats).length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">توزيع أنواع الحقول</h3>
+          </div>
+          <div className="p-6">
+            <div className="space-y-3">
+              {Object.entries(fieldTypeStats).map(([type, count]) => (
+                <div key={type} className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">{type}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-primary h-2 rounded-full" 
+                        style={{ 
+                          width: `${Math.max((count / (fields?.length || 1)) * 100, 10)}%` 
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm text-gray-500 min-w-[2rem] text-right">{count}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <Table
+          columns={columns}
+          data={fields || []}
+          loading={isLoading}
+          emptyText="لا توجد حقول"
+        />
+      </div>
+
+      {/* Form Modal */}
+      <FieldForm
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleFormSubmit}
+        initialData={selectedItem}
+        mode={formMode}
+        loading={createMutation.isLoading || updateMutation.isLoading}
+      />
+    </div>
+  );
+};
+
+export default Fields;
+
+
+/* ---- File: src/services/api.ts ---- */
+
+import { SupabaseService } from './supabase';
+import {
+  CodeDefinition,
+  DimensionalGroup,
+  Dimensional,
+  Field,
+  DimensionalGroupField,
+  DimensionalBooleanFollow,
+  DimensionalDateFollow,
+  DimensionalDescriptionFollow,
+  DimensionalNumberFollow,
+  DimensionalTextFollow,
+  DimensionalIdFollow,
+  DimensionalGroupBooleanFollow,
+  DimensionalGroupDateFollow,
+  DimensionalGroupIdFollow,
+  DimensionalGroupNumberFollow,
+  DimensionalGroupTextFollow,
+  CodeDefinitionWithGroups,
+  DimensionalGroupWithDetails,
+  DimensionalWithDetails,
+  FieldWithDetails,
+  PaginatedResponse
+} from '@/types';
+import { supabase } from './supabase';
+
+// Service instances
+export const codeDefinitionService = new SupabaseService<CodeDefinition>('gc_code_definition');
+export const dimensionalGroupService = new SupabaseService<DimensionalGroup>('gc_dimensional_groups');
+export const dimensionalService = new SupabaseService<Dimensional>('gc_dimensionals');
+export const fieldService = new SupabaseService<Field>('gc_field');
+export const dimensionalGroupFieldService = new SupabaseService<DimensionalGroupField>('gc_dimensional_group_field');
+
+// Follow services
+export const dimensionalBooleanFollowService = new SupabaseService<DimensionalBooleanFollow>('gc_dimensional_boolean_follows');
+export const dimensionalDateFollowService = new SupabaseService<DimensionalDateFollow>('gc_dimensional_date_follows');
+export const dimensionalDescriptionFollowService = new SupabaseService<DimensionalDescriptionFollow>('gc_dimensional_description_follows');
+export const dimensionalNumberFollowService = new SupabaseService<DimensionalNumberFollow>('gc_dimensional_number_follows');
+export const dimensionalTextFollowService = new SupabaseService<DimensionalTextFollow>('gc_dimensional_text_follows');
+export const dimensionalIdFollowService = new SupabaseService<DimensionalIdFollow>('gc_dimensional_id_follows');
+
+// Group follow services
+export const dimensionalGroupBooleanFollowService = new SupabaseService<DimensionalGroupBooleanFollow>('gc_dimensional_group_boolean_follows');
+export const dimensionalGroupDateFollowService = new SupabaseService<DimensionalGroupDateFollow>('gc_dimensional_group_date_follows');
+export const dimensionalGroupIdFollowService = new SupabaseService<DimensionalGroupIdFollow>('gc_dimensional_group_id_follows');
+export const dimensionalGroupNumberFollowService = new SupabaseService<DimensionalGroupNumberFollow>('gc_dimensional_group_number_follows');
+export const dimensionalGroupTextFollowService = new SupabaseService<DimensionalGroupTextFollow>('gc_dimensional_group_text_follows');
+
+// Extended API functions with joins and relations
+export class ApiService {
+  // Code Definition API
+  static async getCodeDefinitionsWithGroups(): Promise<CodeDefinitionWithGroups[]> {
+    const { data, error } = await supabase
+      .from('gc_code_definition')
+      .select(`
+        *,
+        groups:gc_dimensional_groups(*)
+      `);
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Dimensional Group API
+  static async getDimensionalGroupsWithDetails(filters?: {
+    code_definition_id?: number;
+    is_active?: boolean;
+  }): Promise<DimensionalGroupWithDetails[]> {
+    let query = supabase
+      .from('gc_dimensional_groups')
+      .select(`
+        *,
+        code_definition:gc_code_definition(*),
+        dimensionals:gc_dimensionals(*),
+        fields:gc_dimensional_group_field(
+          *,
+          field:gc_field(*),
+          list_dimensional_group:gc_dimensional_groups(*)
+        ),
+        system_dimensional:gc_dimensionals!system_dimensional_id(*),
+        father_group:gc_dimensional_groups!dimensional_group_father_id(*),
+        children_groups:gc_dimensional_groups!dimensional_group_father_id(*)
+      `);
+
+    if (filters?.code_definition_id) {
+      query = query.eq('code_definition_id', filters.code_definition_id);
+    }
+    if (filters?.is_active !== undefined) {
+      query = query.eq('is_active', filters.is_active);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  }
+
+  static async getDimensionalGroupById(id: number): Promise<DimensionalGroupWithDetails | null> {
+    const { data, error } = await supabase
+      .from('gc_dimensional_groups')
+      .select(`
+        *,
+        code_definition:gc_code_definition(*),
+        dimensionals:gc_dimensionals(*),
+        fields:gc_dimensional_group_field(
+          *,
+          field:gc_field(*),
+          list_dimensional_group:gc_dimensional_groups(*)
+        ),
+        system_dimensional:gc_dimensionals!system_dimensional_id(*),
+        father_group:gc_dimensional_groups!dimensional_group_father_id(*),
+        children_groups:gc_dimensional_groups!dimensional_group_father_id(*)
+      `)
+      .eq('dimensional_group_id', id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
+  // Dimensional API
+  static async getDimensionalsWithDetails(groupId?: number): Promise<DimensionalWithDetails[]> {
+    let query = supabase
+      .from('gc_dimensionals')
+      .select(`
+        *,
+        group:gc_dimensional_groups(*),
+        father:gc_dimensionals!dimensional_father_id(*),
+        children:gc_dimensionals!dimensional_father_id(*),
+        boolean_follows:gc_dimensional_boolean_follows(*),
+        date_follows:gc_dimensional_date_follows(*),
+        description_follows:gc_dimensional_description_follows(*),
+        number_follows:gc_dimensional_number_follows(*),
+        text_follows:gc_dimensional_text_follows(*),
+        id_follows:gc_dimensional_id_follows(*)
+      `);
+
+    if (groupId) {
+      query = query.eq('dimensional_group_id', groupId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Field API
+  static async getFieldsWithDetails(): Promise<FieldWithDetails[]> {
+    const { data, error } = await supabase
+      .from('gc_field')
+      .select(`
+        *,
+        field_type:gc_dimensionals!field_type_dimensional_id(*),
+        dimensional_group_fields:gc_dimensional_group_field(
+          *,
+          dimensional_group:gc_dimensional_groups(*)
+        )
+      `);
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Follow data management
+  static async getDimensionalFollowData(dimensionalId: number) {
+    const [
+      booleanFollows,
+      dateFollows,
+      descriptionFollows,
+      numberFollows,
+      textFollows,
+      idFollows
+    ] = await Promise.all([
+      dimensionalBooleanFollowService.getAll({ filters: { dimensional_id: dimensionalId } }),
+      dimensionalDateFollowService.getAll({ filters: { dimensional_id: dimensionalId } }),
+      dimensionalDescriptionFollowService.getAll({ filters: { dimensional_id: dimensionalId } }),
+      dimensionalNumberFollowService.getAll({ filters: { dimensional_id: dimensionalId } }),
+      dimensionalTextFollowService.getAll({ filters: { dimensional_id: dimensionalId } }),
+      dimensionalIdFollowService.getAll({ filters: { dimensional_id: dimensionalId } })
+    ]);
+
+    return {
+      booleanFollows,
+      dateFollows,
+      descriptionFollows,
+      numberFollows,
+      textFollows,
+      idFollows
+    };
+  }
+
+  static async getDimensionalGroupFollowData(dimensionalGroupId: number) {
+    const [
+      booleanFollows,
+      dateFollows,
+      idFollows,
+      numberFollows,
+      textFollows
+    ] = await Promise.all([
+      dimensionalGroupBooleanFollowService.getAll({ filters: { dimensional_group_id: dimensionalGroupId } }),
+      dimensionalGroupDateFollowService.getAll({ filters: { dimensional_group_id: dimensionalGroupId } }),
+      dimensionalGroupIdFollowService.getAll({ filters: { dimensional_group_id: dimensionalGroupId } }),
+      dimensionalGroupNumberFollowService.getAll({ filters: { dimensional_group_id: dimensionalGroupId } }),
+      dimensionalGroupTextFollowService.getAll({ filters: { dimensional_group_id: dimensionalGroupId } })
+    ]);
+
+    return {
+      booleanFollows,
+      dateFollows,
+      idFollows,
+      numberFollows,
+      textFollows
+    };
+  }
+
+  // Pagination helper
+  static async getPaginatedData<T>(
+    service: SupabaseService<T>,
+    page: number = 1,
+    pageSize: number = 10,
+    options?: {
+      select?: string;
+      orderBy?: string;
+      ascending?: boolean;
+      filters?: Record<string, any>;
+    }
+  ): Promise<PaginatedResponse<T>> {
+    const offset = (page - 1) * pageSize;
+    
+    const [data, total] = await Promise.all([
+      service.getAll({
+        ...options,
+        limit: pageSize,
+        offset
+      }),
+      service.count(options?.filters)
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize)
+    };
+  }
+}
+
+export default ApiService;
+
+
+/* ---- File: src/services/dimensionalGroups.ts ---- */
+
+import { supabase } from '../services/supabase';
+import { DimensionalGroup, GroupFieldsUsage } from '../types/dimensionalGroups';
+
+export class DimensionalGroupService {
+  
+  // جلب جميع المجموعات مع التسلسل الهرمي
+  static async getAll(): Promise<DimensionalGroup[]> {
+    const { data, error } = await supabase
+      .from('gc_dimensional_groups')
+      .select(`
+        *,
+        code_definition:gc_code_definition(code_definition_code),
+        system_dimensional:gc_dimensionals(dimensional_name),
+        parent_group:dimensional_group_father_id(dimensional_group_name),
+        children_groups:gc_dimensional_groups!dimensional_group_father_id(*)
+      `)
+      .order('level', { ascending: true })
+      .order('dimensional_group_sort', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
+  }
+
+  // جلب المجموعات حسب المستوى
+  static async getByLevel(level: number): Promise<DimensionalGroup[]> {
+    const { data, error } = await supabase
+      .from('gc_dimensional_groups')
+      .select('*')
+      .eq('level', level)
+      .eq('is_active', true)
+      .order('dimensional_group_sort');
+    
+    if (error) throw error;
+    return data || [];
+  }
+
+  // جلب المجموعات الفرعية
+  static async getChildren(parentId: number): Promise<DimensionalGroup[]> {
+    const { data, error } = await supabase
+      .from('gc_dimensional_groups')
+      .select('*')
+      .eq('dimensional_group_father_id', parentId)
+      .order('dimensional_group_sort');
+    
+    if (error) throw error;
+    return data || [];
+  }
+
+  // حساب استخدام الحقول الحالي
+  static async getFieldsUsage(groupId: number): Promise<GroupFieldsUsage> {
+    // حساب الحقول على مستوى المجموعة
+    const [groupTextCount, groupNumberCount, groupDateCount, groupBooleanCount, groupIdCount] = 
+      await Promise.all([
+        this.getGroupFieldCount(groupId, 'text'),
+        this.getGroupFieldCount(groupId, 'number'),
+        this.getGroupFieldCount(groupId, 'date'),
+        this.getGroupFieldCount(groupId, 'boolean'),
+        this.getGroupFieldCount(groupId, 'id')
+      ]);
+
+    // حساب الحقول على مستوى الأبعاد
+    const [dimTextCount, dimNumberCount, dimDateCount, dimBooleanCount, dimDescCount, dimIdCount] = 
+      await Promise.all([
+        this.getDimensionalFieldCount(groupId, 'text'),
+        this.getDimensionalFieldCount(groupId, 'number'),
+        this.getDimensionalFieldCount(groupId, 'date'),
+        this.getDimensionalFieldCount(groupId, 'boolean'),
+        this.getDimensionalFieldCount(groupId, 'description'),
+        this.getDimensionalFieldCount(groupId, 'id')
+      ]);
+
+    return {
+      text: groupTextCount,
+      number: groupNumberCount,
+      date: groupDateCount,
+      boolean: groupBooleanCount,
+      id: groupIdCount,
+      dimensional_text: dimTextCount,
+      dimensional_number: dimNumberCount,
+      dimensional_date: dimDateCount,
+      dimensional_boolean: dimBooleanCount,
+      dimensional_description: dimDescCount,
+      dimensional_id: dimIdCount
+    };
+  }
+
+  private static async getGroupFieldCount(groupId: number, fieldType: string): Promise<number> {
+    const { count } = await supabase
+      .from('gc_dimensional_group_field')
+      .select('*', { count: 'exact', head: true })
+      .eq('dimensional_group_id', groupId)
+      .eq('is_for_group', true);
+    
+    return count || 0;
+  }
+
+  private static async getDimensionalFieldCount(groupId: number, fieldType: string): Promise<number> {
+    const tableMap = {
+      'text': 'gc_dimensional_text_follows',
+      'number': 'gc_dimensional_number_follows',
+      'date': 'gc_dimensional_date_follows',
+      'boolean': 'gc_dimensional_boolean_follows',
+      'description': 'gc_dimensional_description_follows',
+      'id': 'gc_dimensional_id_follows'
+    };
+
+    const { count } = await supabase
+      .from(tableMap[fieldType])
+      .select('dimensional_id', { count: 'exact', head: true });
+    
+    return count || 0;
+  }
+
+  // إنشاء مجموعة جديدة
+  static async create(group: Omit<DimensionalGroup, 'dimensional_group_id'>): Promise<DimensionalGroup> {
+    const { data, error } = await supabase
+      .from('gc_dimensional_groups')
+      .insert(group)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
+  // تحديث مجموعة
+  static async update(id: number, group: Partial<DimensionalGroup>): Promise<DimensionalGroup> {
+    const { data, error } = await supabase
+      .from('gc_dimensional_groups')
+      .update(group)
+      .eq('dimensional_group_id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
+  // حذف مجموعة
+  static async delete(id: number): Promise<void> {
+    const { error } = await supabase
+      .from('gc_dimensional_groups')
+      .delete()
+      .eq('dimensional_group_id', id);
+    
+    if (error) throw error;
+  }
+
+  // التحقق من إمكانية إضافة حقل جديد
+  static async canAddField(groupId: number, fieldType: string, forDimensional = false): Promise<boolean> {
+    const group = await this.getById(groupId);
+    const usage = await this.getFieldsUsage(groupId);
+    
+    if (!group) return false;
+
+    const limitField = forDimensional 
+      ? `dimensional_${fieldType}_flows_count`
+      : `${fieldType}_flows_count`;
+    
+    const currentUsage = forDimensional 
+      ? usage[`dimensional_${fieldType}` as keyof GroupFieldsUsage]
+      : usage[fieldType as keyof GroupFieldsUsage];
+
+    return (currentUsage as number) < (group[limitField as keyof DimensionalGroup] as number || 0);
+  }
+
+  private static async getById(id: number): Promise<DimensionalGroup | null> {
+    const { data, error } = await supabase
+      .from('gc_dimensional_groups')
+      .select('*')
+      .eq('dimensional_group_id', id)
+      .single();
+    
+    if (error) return null;
+    return data;
+  }
+}
+
+
+
+/* ---- File: src/services/supabase.ts ---- */
+
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '@/types/database';
+
+// Supabase configuration
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+}
+
+// Create Supabase client
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+
+// Helper function for error handling
+export const handleSupabaseError = (error: any) => {
+  console.error('Supabase Error:', error);
+  if (error?.message) {
+    throw new Error(error.message);
+  }
+  throw new Error('حدث خطأ غير متوقع في قاعدة البيانات');
+};
+
+// Generic CRUD operations
+export class SupabaseService<T extends Record<string, any>> {
+  constructor(private tableName: string) {}
+
+  async getAll(options?: {
+    select?: string;
+    orderBy?: string;
+    ascending?: boolean;
+    limit?: number;
+    offset?: number;
+    filters?: Record<string, any>;
+  }): Promise<T[]> {
+    try {
+      let query = supabase
+        .from(this.tableName)
+        .select(options?.select || '*');
+
+      // Apply filters
+      if (options?.filters) {
+        Object.entries(options.filters).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) {
+            query = query.eq(key, value);
+          }
+        });
+      }
+
+      // Apply ordering
+      if (options?.orderBy) {
+        query = query.order(options.orderBy, { ascending: options.ascending ?? true });
+      }
+
+      // Apply pagination
+      if (options?.limit) {
+        query = query.limit(options.limit);
+      }
+      if (options?.offset) {
+        query = query.range(options.offset, options.offset + (options?.limit || 10) - 1);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        handleSupabaseError(error);
+      }
+
+      return data || [];
+    } catch (error) {
+      handleSupabaseError(error);
+      return [];
+    }
+  }
+
+  async getById(id: number, options?: { select?: string }): Promise<T | null> {
+    try {
+      const { data, error } = await supabase
+        .from(this.tableName)
+        .select(options?.select || '*')
+        .eq(`${this.tableName.replace('gc_', '').replace(/s$/, '')}_id`, id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        handleSupabaseError(error);
+      }
+
+      return data;
+    } catch (error) {
+      handleSupabaseError(error);
+      return null;
+    }
+  }
+
+  async create(data: Partial<T>): Promise<T> {
+    try {
+      const { data: result, error } = await supabase
+        .from(this.tableName)
+        .insert([{
+          ...data,
+          created_at: new Date().toISOString().split('T')[0]
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        handleSupabaseError(error);
+      }
+
+      return result;
+    } catch (error) {
+      handleSupabaseError(error);
+      throw error;
+    }
+  }
+
+  async update(id: number, data: Partial<T>): Promise<T> {
+    try {
+      const { data: result, error } = await supabase
+        .from(this.tableName)
+        .update({
+          ...data,
+          updated_by: 1 // This should come from auth context
+        })
+        .eq(`${this.tableName.replace('gc_', '').replace(/s$/, '')}_id`, id)
+        .select()
+        .single();
+
+      if (error) {
+        handleSupabaseError(error);
+      }
+
+      return result;
+    } catch (error) {
+      handleSupabaseError(error);
+      throw error;
+    }
+  }
+
+  async delete(id: number): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from(this.tableName)
+        .delete()
+        .eq(`${this.tableName.replace('gc_', '').replace(/s$/, '')}_id`, id);
+
+      if (error) {
+        handleSupabaseError(error);
+      }
+
+      return true;
+    } catch (error) {
+      handleSupabaseError(error);
+      return false;
+    }
+  }
+
+  async count(filters?: Record<string, any>): Promise<number> {
+    try {
+      let query = supabase
+        .from(this.tableName)
+        .select('*', { count: 'exact', head: true });
+
+      // Apply filters
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) {
+            query = query.eq(key, value);
+          }
+        });
+      }
+
+      const { count, error } = await query;
+
+      if (error) {
+        handleSupabaseError(error);
+      }
+
+      return count || 0;
+    } catch (error) {
+      handleSupabaseError(error);
+      return 0;
+    }
+  }
+}
+
+
+/* ---- File: src/styles/globals.css ---- */
+
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #dbeafe;
+  --secondary-color: #64748b;
+  --secondary-hover: #475569;
+  --secondary-light: #f1f5f9;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  --white: #ffffff;
+  --border-radius: 0.5rem;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --transition: all 0.2s ease-in-out;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  direction: rtl;
+  text-align: right;
+}
+
+body {
+  font-family: 'Cairo', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--gray-800);
+  background-color: var(--gray-50);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.25;
+  margin-bottom: 0.5rem;
+}
+
+h1 { font-size: 2.25rem; }
+h2 { font-size: 1.875rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1.125rem; }
+h6 { font-size: 1rem; }
+
+p {
+  margin-bottom: 1rem;
+}
+
+/* Layout */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.items-start {
+  align-items: flex-start;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+.gap-6 { gap: 1.5rem; }
+
+/* Spacing */
+.m-0 { margin: 0; }
+.m-1 { margin: 0.25rem; }
+.m-2 { margin: 0.5rem; }
+.m-3 { margin: 0.75rem; }
+.m-4 { margin: 1rem; }
+
+.p-0 { padding: 0; }
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+
+.px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+.px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+.px-4 { padding-left: 1rem; padding-right: 1rem; }
+.px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+
+.py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-3 { margin-bottom: 0.75rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+
+/* Colors */
+.text-primary { color: var(--primary-color); }
+.text-secondary { color: var(--secondary-color); }
+.text-success { color: var(--success-color); }
+.text-warning { color: var(--warning-color); }
+.text-error { color: var(--error-color); }
+.text-gray-400 { color: var(--gray-400); }
+.text-gray-500 { color: var(--gray-500); }
+.text-gray-600 { color: var(--gray-600); }
+.text-gray-700 { color: var(--gray-700); }
+.text-gray-800 { color: var(--gray-800); }
+.text-gray-900 { color: var(--gray-900); }
+.text-white { color: var(--white); }
+
+.bg-primary { background-color: var(--primary-color); }
+.bg-primary-light { background-color: var(--primary-light); }
+.bg-secondary { background-color: var(--secondary-color); }
+.bg-secondary-light { background-color: var(--secondary-light); }
+.bg-success { background-color: var(--success-color); }
+.bg-warning { background-color: var(--warning-color); }
+.bg-error { background-color: var(--error-color); }
+.bg-gray-50 { background-color: var(--gray-50); }
+.bg-gray-100 { background-color: var(--gray-100); }
+.bg-gray-200 { background-color: var(--gray-200); }
+.bg-white { background-color: var(--white); }
+
+/* Borders */
+.border { border: 1px solid var(--gray-200); }
+.border-gray-300 { border-color: var(--gray-300); }
+.border-primary { border-color: var(--primary-color); }
+.border-error { border-color: var(--error-color); }
+
+.rounded { border-radius: var(--border-radius); }
+.rounded-lg { border-radius: 0.75rem; }
+.rounded-full { border-radius: 9999px; }
+
+/* Shadows */
+.shadow-sm { box-shadow: var(--shadow-sm); }
+.shadow-md { box-shadow: var(--shadow-md); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+
+/* Interactive */
+.cursor-pointer { cursor: pointer; }
+.cursor-not-allowed { cursor: not-allowed; }
+
+/* Position */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+
+/* Display */
+.block { display: block; }
+.inline-block { display: inline-block; }
+.hidden { display: none; }
+
+/* Width & Height */
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.min-h-screen { min-height: 100vh; }
+
+/* Text */
+.text-xs { font-size: 0.75rem; }
+.text-sm { font-size: 0.875rem; }
+.text-base { font-size: 1rem; }
+.text-lg { font-size: 1.125rem; }
+.text-xl { font-size: 1.25rem; }
+.text-2xl { font-size: 1.5rem; }
+
+.font-light { font-weight: 300; }
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+
+/* Transitions */
+.transition { transition: var(--transition); }
+
+/* Hover effects */
+.hover\:bg-gray-100:hover { background-color: var(--gray-100); }
+.hover\:bg-primary-hover:hover { background-color: var(--primary-hover); }
+.hover\:text-primary:hover { color: var(--primary-color); }
+
+/* Focus effects */
+.focus\:outline-none:focus { outline: none; }
+.focus\:ring-2:focus { 
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+/* Animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .md\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .md\:flex-row { flex-direction: row; }
+}
+
+@media (min-width: 1024px) {
+  .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+/* Modal Styles - إضافة في النهاية */
+.modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  z-index: 999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
+}
+
+.modal-content {
+  background-color: white !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  max-width: 32rem !important;
+  width: 100% !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  z-index: 1000000 !important;
+  position: relative !important;
+}
+
+.modal-header {
+  padding: 1.5rem !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.modal-body {
+  padding: 1.5rem !important;
+}
+
+
+
+
+/* ---- File: src/types/database.ts ---- */
+
+// Database Types based on the provided SQL schema
+export interface Database {
+  public: {
+    Tables: {
+      gc_code_definition: {
+        Row: CodeDefinition;
+        Insert: Omit<CodeDefinition, 'code_definition_id'> & { code_definition_id?: number };
+        Update: Partial<Omit<CodeDefinition, 'code_definition_id'>>;
+      };
+      gc_dimensional_groups: {
+        Row: DimensionalGroup;
+        Insert: Omit<DimensionalGroup, 'dimensional_group_id'> & { dimensional_group_id?: number };
+        Update: Partial<Omit<DimensionalGroup, 'dimensional_group_id'>>;
+      };
+      gc_dimensionals: {
+        Row: Dimensional;
+        Insert: Omit<Dimensional, 'dimensional_id'> & { dimensional_id?: number };
+        Update: Partial<Omit<Dimensional, 'dimensional_id'>>;
+      };
+      gc_field: {
+        Row: Field;
+        Insert: Omit<Field, 'field_id'> & { field_id?: number };
+        Update: Partial<Omit<Field, 'field_id'>>;
+      };
+      gc_dimensional_group_field: {
+        Row: DimensionalGroupField;
+        Insert: Omit<DimensionalGroupField, 'dimensional_group_field_id'> & { dimensional_group_field_id?: number };
+        Update: Partial<Omit<DimensionalGroupField, 'dimensional_group_field_id'>>;
+      };
+      // Follow tables
+      gc_dimensional_boolean_follows: {
+        Row: DimensionalBooleanFollow;
+        Insert: Omit<DimensionalBooleanFollow, 'dimensional_boolean_follow_id'> & { dimensional_boolean_follow_id?: number };
+        Update: Partial<Omit<DimensionalBooleanFollow, 'dimensional_boolean_follow_id'>>;
+      };
+      gc_dimensional_date_follows: {
+        Row: DimensionalDateFollow;
+        Insert: Omit<DimensionalDateFollow, 'dimensional_date_follow_id'> & { dimensional_date_follow_id?: number };
+        Update: Partial<Omit<DimensionalDateFollow, 'dimensional_date_follow_id'>>;
+      };
+      gc_dimensional_description_follows: {
+        Row: DimensionalDescriptionFollow;
+        Insert: Omit<DimensionalDescriptionFollow, 'dimensional_description_follow_id'> & { dimensional_description_follow_id?: number };
+        Update: Partial<Omit<DimensionalDescriptionFollow, 'dimensional_description_follow_id'>>;
+      };
+      gc_dimensional_number_follows: {
+        Row: DimensionalNumberFollow;
+        Insert: Omit<DimensionalNumberFollow, 'dimensional_number_follow_id'> & { dimensional_number_follow_id?: number };
+        Update: Partial<Omit<DimensionalNumberFollow, 'dimensional_number_follow_id'>>;
+      };
+      gc_dimensional_text_follows: {
+        Row: DimensionalTextFollow;
+        Insert: Omit<DimensionalTextFollow, 'dimensional_text_follow_id'> & { dimensional_text_follow_id?: number };
+        Update: Partial<Omit<DimensionalTextFollow, 'dimensional_text_follow_id'>>;
+      };
+      gc_dimensional_id_follows: {
+        Row: DimensionalIdFollow;
+        Insert: Omit<DimensionalIdFollow, 'dimensional_id_follow_id'> & { dimensional_id_follow_id?: number };
+        Update: Partial<Omit<DimensionalIdFollow, 'dimensional_id_follow_id'>>;
+      };
+      // Group follow tables
+      gc_dimensional_group_boolean_follows: {
+        Row: DimensionalGroupBooleanFollow;
+        Insert: Omit<DimensionalGroupBooleanFollow, 'dimensional_group_boolean_follow_id'> & { dimensional_group_boolean_follow_id?: number };
+        Update: Partial<Omit<DimensionalGroupBooleanFollow, 'dimensional_group_boolean_follow_id'>>;
+      };
+      gc_dimensional_group_date_follows: {
+        Row: DimensionalGroupDateFollow;
+        Insert: Omit<DimensionalGroupDateFollow, 'dimensional_group_date_follow_id'> & { dimensional_group_date_follow_id?: number };
+        Update: Partial<Omit<DimensionalGroupDateFollow, 'dimensional_group_date_follow_id'>>;
+      };
+      gc_dimensional_group_id_follows: {
+        Row: DimensionalGroupIdFollow;
+        Insert: Omit<DimensionalGroupIdFollow, 'dimensional_group_id_follow_id'> & { dimensional_group_id_follow_id?: number };
+        Update: Partial<Omit<DimensionalGroupIdFollow, 'dimensional_group_id_follow_id'>>;
+      };
+      gc_dimensional_group_number_follows: {
+        Row: DimensionalGroupNumberFollow;
+        Insert: Omit<DimensionalGroupNumberFollow, 'dimensional_group_number_follow_id'> & { dimensional_group_number_follow_id?: number };
+        Update: Partial<Omit<DimensionalGroupNumberFollow, 'dimensional_group_number_follow_id'>>;
+      };
+      gc_dimensional_group_text_follows: {
+        Row: DimensionalGroupTextFollow;
+        Insert: Omit<DimensionalGroupTextFollow, 'dimensional_group_text_follow_id'> & { dimensional_group_text_follow_id?: number };
+        Update: Partial<Omit<DimensionalGroupTextFollow, 'dimensional_group_text_follow_id'>>;
+      };
+    };
+  };
+}
+
+// Base entity interfaces
+export interface CodeDefinition {
+  code_definition_id: number;
+  code_definition_code?: string | null;
+  system_config_level?: number | null;
+  is_available?: boolean | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface DimensionalGroup {
+  dimensional_group_id: number;
+  code_definition_id?: number | null;
+  dimensional_group_name?: string | null;
+  dimensional_group_description?: string | null;
+  boolean_flows_count?: number | null;
+  text_flows_count?: number | null;
+  number_flows_count?: number | null;
+  date_flows_count?: number | null;
+  id_flows_count?: number | null;
+  dimensional_boolean_flows_count?: number | null;
+  dimensional_text_flows_count?: number | null;
+  dimensional_number_flows_count?: number | null;
+  dimensional_date_flows_count?: number | null;
+  dimensional_description_flows_count?: number | null;
+  dimensional_id_flows_count?: number | null;
+  system_dimensional_id?: number | null;
+  is_need_permission?: boolean | null;
+  is_constant?: boolean | null;
+  is_active?: boolean | null;
+  level?: number | null;
+  dimensional_group_father_id?: number | null;
+  dimensional_group_sort?: number | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface Dimensional {
+  dimensional_id: number;
+  dimensional_group_id?: number | null;
+  dimensional_name?: string | null;
+  is_active?: boolean | null;
+  level?: number | null;
+  dimensional_father_id?: number | null;
+  dimensional_sort?: number | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface Field {
+  field_id: number;
+  field_code?: string | null;
+  field_name?: string | null;
+  field_type_dimensional_id?: number | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface DimensionalGroupField {
+  dimensional_group_field_id: number;
+  dimensional_group_id?: number | null;
+  field_id?: number | null;
+  list_dimensional_group_id?: number | null;
+  is_for_group?: boolean | null;
+  field_sort?: number | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+// Follow tables interfaces
+export interface DimensionalBooleanFollow {
+  dimensional_boolean_follow_id: number;
+  dimensional_id?: number | null;
+  field_id?: number | null;
+  dimensional_boolean_follow_stat?: boolean | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface DimensionalDateFollow {
+  dimensional_date_follow_id: number;
+  dimensional_id?: number | null;
+  field_id?: number | null;
+  date_value?: string | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface DimensionalDescriptionFollow {
+  dimensional_description_follow_id: number;
+  dimensional_id?: number | null;
+  field_id?: number | null;
+  description_value?: string | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface DimensionalNumberFollow {
+  dimensional_number_follow_id: number;
+  dimensional_id?: number | null;
+  field_id?: number | null;
+  dimensional_number_follow_value?: number | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface DimensionalTextFollow {
+  dimensional_text_follow_id: number;
+  dimensional_id?: number | null;
+  field_id?: number | null;
+  dimensional_text_follow_value?: string | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface DimensionalIdFollow {
+  dimensional_id_follow_id: number;
+  dimensional_id?: number | null;
+  field_id?: number | null;
+  follow_dimensional_id?: number | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+// Group follow tables interfaces
+export interface DimensionalGroupBooleanFollow {
+  dimensional_group_boolean_follow_id: number;
+  dimensional_group_id?: number | null;
+  field_id?: number | null;
+  dimensional_group_boolean_follow_stat?: boolean | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface DimensionalGroupDateFollow {
+  dimensional_group_date_follow_id: number;
+  dimensional_group_id?: number | null;
+  field_id?: number | null;
+  date_value?: string | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface DimensionalGroupIdFollow {
+  dimensional_group_id_follow_id: number;
+  dimensional_group_id?: number | null;
+  field_id?: number | null;
+  dimensional_id?: number | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface DimensionalGroupNumberFollow {
+  dimensional_group_number_follow_id: number;
+  dimensional_group_id?: number | null;
+  field_id?: number | null;
+  dimensional_group_number_follow_value?: number | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+export interface DimensionalGroupTextFollow {
+  dimensional_group_text_follow_id: number;
+  dimensional_group_id?: number | null;
+  field_id?: number | null;
+  dimensional_group_text_follow_value?: string | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  updated_by?: number | null;
+}
+
+
+/* ---- File: src/types/dimensionalGroups.ts ---- */
+
+export interface DimensionalGroup {
+  dimensional_group_id: number;
+  code_definition_id?: number;
+  dimensional_group_name?: string;
+  dimensional_group_description?: string;
+  
+  // حقول العد للمجموعة
+  boolean_flows_count?: number;
+  text_flows_count?: number;
+  number_flows_count?: number;
+  date_flows_count?: number;
+  id_flows_count?: number;
+  
+  // حقول العد للأبعاد
+  dimensional_boolean_flows_count?: number;
+  dimensional_text_flows_count?: number;
+  dimensional_number_flows_count?: number;
+  dimensional_date_flows_count?: number;
+  dimensional_description_flows_count?: number;
+  dimensional_id_flows_count?: number;
+  
+  // حقول التحكم
+  system_dimensional_id?: number;
+  is_need_permission?: boolean;
+  is_constant?: boolean;
+  is_active?: boolean;
+  level?: number;
+  dimensional_group_father_id?: number;
+  dimensional_group_sort?: number;
+  
+  // حقول المتابعة
+  created_by?: number;
+  created_at?: string;
+  updated_by?: number;
+}
+
+export interface GroupFieldsUsage {
+  text: number;
+  number: number;
+  date: number;
+  boolean: number;
+  id: number;
+  dimensional_text: number;
+  dimensional_number: number;
+  dimensional_date: number;
+  dimensional_boolean: number;
+  dimensional_description: number;
+  dimensional_id: number;
+}
+
+
+
+/* ---- File: src/types/index.ts ---- */
+
+export * from './database';
+
+// Application specific types
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface FormField {
+  name: string;
+  label: string;
+  type: 'text' | 'number' | 'boolean' | 'date' | 'textarea' | 'select';
+  required?: boolean;
+  options?: { value: any; label: string }[];
+  placeholder?: string;
+}
+
+export interface TableColumn {
+  key: string;
+  title: string;
+  width?: number;
+  sortable?: boolean;
+  render?: (value: any, record: any) => React.ReactNode;
+}
+
+export interface MenuItem {
+  key: string;
+  title: string;
+  icon: React.ReactNode;
+  path: string;
+  children?: MenuItem[];
+}
+
+// Field types enum
+export enum FieldType {
+  TEXT = 'text',
+  NUMBER = 'number', 
+  BOOLEAN = 'boolean',
+  DATE = 'date',
+  DESCRIPTION = 'description',
+  ID = 'id'
+}
+
+// Entity status enum
+export enum EntityStatus {
+  ACTIVE = 1,
+  INACTIVE = 0
+}
+
+// Form mode enum
+export enum FormMode {
+  CREATE = 'create',
+  EDIT = 'edit',
+  VIEW = 'view'
+}
+
+// Extended interfaces with relations
+export interface CodeDefinitionWithGroups extends CodeDefinition {
+  groups?: DimensionalGroup[];
+}
+
+export interface DimensionalGroupWithDetails extends DimensionalGroup {
+  code_definition?: CodeDefinition;
+  dimensionals?: Dimensional[];
+  fields?: (DimensionalGroupField & {
+    field?: Field;
+    list_dimensional_group?: DimensionalGroup;
+  })[];
+  system_dimensional?: Dimensional;
+  father_group?: DimensionalGroup;
+  children_groups?: DimensionalGroup[];
+}
+
+export interface DimensionalWithDetails extends Dimensional {
+  group?: DimensionalGroup;
+  father?: Dimensional;
+  children?: Dimensional[];
+  boolean_follows?: DimensionalBooleanFollow[];
+  date_follows?: DimensionalDateFollow[];
+  description_follows?: DimensionalDescriptionFollow[];
+  number_follows?: DimensionalNumberFollow[];
+  text_follows?: DimensionalTextFollow[];
+  id_follows?: DimensionalIdFollow[];
+}
+
+export interface FieldWithDetails extends Field {
+  field_type?: Dimensional;
+  dimensional_group_fields?: (DimensionalGroupField & {
+    dimensional_group?: DimensionalGroup;
+  })[];
+}
+
