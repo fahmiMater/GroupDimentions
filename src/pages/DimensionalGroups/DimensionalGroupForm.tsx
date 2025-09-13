@@ -8,7 +8,7 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { DimensionalGroupService } from '../../services/dimensionalGroups';
 
 // Interfaces
@@ -26,20 +26,30 @@ interface DimensionalGroupFormProps {
   loading?: boolean;
 }
 
-// Custom hooks
+// Custom hooks with React Query v5 syntax
 const useCodeDefinitions = () => {
-  return useQuery<CodeDefinition[]>('code-definitions', async () => {
-    // مؤقتاً - بيانات وهمية
-    return [
-      { code_definition_id: 1, code_definition_code: 'SYS001' },
-      { code_definition_id: 2, code_definition_code: 'SYS002' },
-      { code_definition_id: 3, code_definition_code: 'SYS003' }
-    ];
+  return useQuery({
+    queryKey: ['code-definitions'],
+    queryFn: async (): Promise<CodeDefinition[]> => {
+      // مؤقتاً - بيانات وهمية
+      return [
+        { code_definition_id: 1, code_definition_code: 'SYS001' },
+        { code_definition_id: 2, code_definition_code: 'SYS002' },
+        { code_definition_id: 3, code_definition_code: 'SYS003' }
+      ];
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 };
 
 const useDimensionalGroups = () => {
-  return useQuery('dimensional-groups', DimensionalGroupService.getAll);
+  return useQuery({
+    queryKey: ['dimensional-groups'],
+    queryFn: DimensionalGroupService.getAll,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
 };
 
 // Validation Schema
@@ -101,11 +111,11 @@ const DimensionalGroupForm: React.FC<DimensionalGroupFormProps> = ({
     reset
   } = useForm<FormData>({
     resolver: yupResolver(validationSchema),
-defaultValues: {
-  code_definition_id: initialData?.code_definition_id || undefined,
-  dimensional_group_name: initialData?.dimensional_group_name || '',
-  dimensional_group_description: initialData?.dimensional_group_description || '',
-  
+    defaultValues: {
+      code_definition_id: initialData?.code_definition_id || undefined,
+      dimensional_group_name: initialData?.dimensional_group_name || '',
+      dimensional_group_description: initialData?.dimensional_group_description || '',
+      
       // حقول العد للمجموعة
       text_flows_count: initialData?.text_flows_count || 0,
       number_flows_count: initialData?.number_flows_count || 0,
@@ -197,17 +207,16 @@ defaultValues: {
   }, [isOpen, initialData, mode, reset]);
 
   const handleFormSubmit = (data: FormData) => {
-  // تنظيف البيانات من null values
-  const cleanData = Object.entries(data).reduce((acc, [key, value]) => {
-    if (value !== null) {
-      (acc as any)[key] = value;
-    }
-    return acc;
-  }, {} as Partial<DimensionalGroup>);
-  
-  onSubmit(cleanData);
-};
-
+    // تنظيف البيانات من null values
+    const cleanData = Object.entries(data).reduce((acc, [key, value]) => {
+      if (value !== null) {
+        (acc as any)[key] = value;
+      }
+      return acc;
+    }, {} as Partial<DimensionalGroup>);
+    
+    onSubmit(cleanData);
+  };
 
   const handleClose = () => {
     reset();
@@ -245,12 +254,13 @@ defaultValues: {
             <Select
               label="تعريف الكود *"
               {...register('code_definition_id')}
-              options={
-                codeDefinitions?.map(cd => ({
-                  value: cd.code_definition_id,
+              options={[
+                { value: '', label: 'اختر تعريف الكود' },
+                ...(codeDefinitions?.map(cd => ({
+                  value: cd.code_definition_id.toString(),
                   label: cd.code_definition_code || `كود ${cd.code_definition_id}`
-                })) || []
-              }
+                })) || [])
+              ]}
               error={errors.code_definition_id?.message}
               disabled={isReadOnly}
             />
@@ -275,6 +285,9 @@ defaultValues: {
               {...register('dimensional_group_description')}
               disabled={isReadOnly}
             />
+            {errors.dimensional_group_description && (
+              <span className="text-red-500 text-sm">{errors.dimensional_group_description.message}</span>
+            )}
           </div>
         </div>
 
@@ -434,12 +447,13 @@ defaultValues: {
             <Select
               label="المجموعة الأب"
               {...register('dimensional_group_father_id')}
-              options={
-                availableParentGroups.map(group => ({
-                  value: group.dimensional_group_id,
+              options={[
+                { value: '', label: 'لا يوجد' },
+                ...availableParentGroups.map(group => ({
+                  value: group.dimensional_group_id.toString(),
                   label: group.dimensional_group_name || `مجموعة ${group.dimensional_group_id}`
                 }))
-              }
+              ]}
               disabled={isReadOnly}
             />
           </div>
@@ -452,7 +466,6 @@ defaultValues: {
                 { value: '', label: 'لا يوجد' }
               ]}
               disabled={isReadOnly}
-              helperText="اختر البعد النظامي المرتبط بهذه المجموعة (اختياري)"
             />
           </div>
         </div>
@@ -467,8 +480,8 @@ defaultValues: {
               label="حالة النشاط"
               {...register('is_active')}
               options={[
-                { value: true, label: 'نشط' },
-                { value: false, label: 'غير نشط' }
+                { value: 'true', label: 'نشط' },
+                { value: 'false', label: 'غير نشط' }
               ]}
               disabled={isReadOnly}
             />
@@ -477,8 +490,8 @@ defaultValues: {
               label="يحتاج صلاحية"
               {...register('is_need_permission')}
               options={[
-                { value: true, label: 'نعم' },
-                { value: false, label: 'لا' }
+                { value: 'true', label: 'نعم' },
+                { value: 'false', label: 'لا' }
               ]}
               disabled={isReadOnly}
             />
@@ -487,8 +500,8 @@ defaultValues: {
               label="ثابت"
               {...register('is_constant')}
               options={[
-                { value: true, label: 'نعم' },
-                { value: false, label: 'لا' }
+                { value: 'true', label: 'نعم' },
+                { value: 'false', label: 'لا' }
               ]}
               disabled={isReadOnly}
             />
