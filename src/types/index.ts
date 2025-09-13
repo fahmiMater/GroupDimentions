@@ -1,3 +1,4 @@
+// Re-export all database types
 export * from './database';
 
 // Application specific types
@@ -70,27 +71,42 @@ export enum FormMode {
   VIEW = 'view'
 }
 
+// Import types from database to use in extended interfaces
+import type {
+  CodeDefinition as BaseCodeDefinition,
+  DimensionalGroup as BaseDimensionalGroup,
+  Dimensional as BaseDimensional,
+  Field as BaseField,
+  DimensionalGroupField as BaseDimensionalGroupField,
+  DimensionalBooleanFollow,
+  DimensionalDateFollow,
+  DimensionalDescriptionFollow,
+  DimensionalNumberFollow,
+  DimensionalTextFollow,
+  DimensionalIdFollow
+} from './database';
+
 // Extended interfaces with relations
-export interface CodeDefinitionWithGroups extends CodeDefinition {
-  groups?: DimensionalGroup[];
+export interface CodeDefinitionWithGroups extends BaseCodeDefinition {
+  groups?: BaseDimensionalGroup[];
 }
 
-export interface DimensionalGroupWithDetails extends DimensionalGroup {
-  code_definition?: CodeDefinition;
-  dimensionals?: Dimensional[];
-  fields?: (DimensionalGroupField & {
-    field?: Field;
-    list_dimensional_group?: DimensionalGroup;
+export interface DimensionalGroupWithDetails extends BaseDimensionalGroup {
+  code_definition?: BaseCodeDefinition;
+  dimensionals?: BaseDimensional[];
+  fields?: (BaseDimensionalGroupField & {
+    field?: BaseField;
+    list_dimensional_group?: BaseDimensionalGroup;
   })[];
-  system_dimensional?: Dimensional;
-  father_group?: DimensionalGroup;
-  children_groups?: DimensionalGroup[];
+  system_dimensional?: BaseDimensional;
+  father_group?: BaseDimensionalGroup;
+  children_groups?: BaseDimensionalGroup[];
 }
 
-export interface DimensionalWithDetails extends Dimensional {
-  group?: DimensionalGroup;
-  father?: Dimensional;
-  children?: Dimensional[];
+export interface DimensionalWithDetails extends BaseDimensional {
+  group?: BaseDimensionalGroup;
+  father?: BaseDimensional;
+  children?: BaseDimensional[];
   boolean_follows?: DimensionalBooleanFollow[];
   date_follows?: DimensionalDateFollow[];
   description_follows?: DimensionalDescriptionFollow[];
@@ -99,9 +115,9 @@ export interface DimensionalWithDetails extends Dimensional {
   id_follows?: DimensionalIdFollow[];
 }
 
-export interface FieldWithDetails extends Field {
-  field_type?: Dimensional;
-  dimensional_group_fields?: (DimensionalGroupField & {
-    dimensional_group?: DimensionalGroup;
+export interface FieldWithDetails extends BaseField {
+  field_type?: BaseDimensional;
+  dimensional_group_fields?: (BaseDimensionalGroupField & {
+    dimensional_group?: BaseDimensionalGroup;
   })[];
 }
